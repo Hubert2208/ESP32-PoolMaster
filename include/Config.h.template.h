@@ -58,7 +58,7 @@
 #define PH_LEVEL        36   //                - " -
 
 //One wire bus for the air/water temperature measurement
-#define ONE_WIRE_BUS_A  17
+#define ONE_WIRE_BUS_A  18
 #define ONE_WIRE_BUS_W  19
 
 //I2C bus for analog measurement with ADS1115 of pH, ORP and water pressure 
