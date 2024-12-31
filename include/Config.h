@@ -12,7 +12,7 @@
 
 //Version of config stored in EEPROM
 //Random value. Change this value (to any other value) to revert the config to default values
-#define CONFIG_VERSION 10
+#define CONFIG_VERSION 11
 
 // WiFi credentials
 #ifdef DEVT
