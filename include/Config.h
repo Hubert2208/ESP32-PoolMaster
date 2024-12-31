@@ -19,7 +19,7 @@
   #define WIFI_NETWORK "<WIFI_DEVT_NETWORK>"
   #define WIFI_PASSWORD "<WIFI_DEVT_PASSWORD>"
 #else
-  #define WIFI_NETWORK "<WIFI_NETWORK>"
+  #define WIFI_NETWORK "Mayer2"
   #define WIFI_PASSWORD "<WIFI_PASSWORD>"
 #endif 
 
@@ -63,9 +63,9 @@
 
 //I2C bus for analog measurement with ADS1115 of pH, ORP and water pressure 
 //and status LED through PCF8574A 
-#define I2C_SDA			21
-#define I2C_SCL			22
-#define PCF8574ADDRESS  0x20 // 0x20 for PCF8574(N) or 0x38 for PCF8574A(N)
+#define I2C_SDA			4
+#define I2C_SCL			5
+#define PCF8574ADDRESS  0x22 // 0x20 for PCF8574(N) or 0x38 for PCF8574A(N)
 
 //Type of pH and Orp sensors acquisition :
 //INT_ADS1115 : single ended signal with internal ADS1115 ADC (default)
