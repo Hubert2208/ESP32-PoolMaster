@@ -1,3 +1,8 @@
+//Some Informmations
+https://www.kincony.com/kc868-a8-hardware-design-details.html
+https://www.kincony.com/how-to-programming.html
+
+
 esphome:
   name: kc868-a8
   platform: ESP32
