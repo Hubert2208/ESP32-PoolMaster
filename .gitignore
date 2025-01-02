@@ -1,0 +1,6 @@
+# Ignore all .log files
+my_config.h
+
+# Ignore all files in any directory named temp
+.pio/
+.vscod/
