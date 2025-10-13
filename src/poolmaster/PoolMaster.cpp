@@ -158,9 +158,9 @@ void PoolMaster(void *pvParameters)
     // taking into account not yet measured temperature if the system starts at 15:xx. 
     // Depending on water temperature, the filtration duration is either 2 hours, temp/3 or temp/2 hours.
     #ifdef DEBUG
-    if (second() == 0 && (millis() - FiltrationPump.StartTime) > 300000 && !d_calc)
+    if (second() == 0 && (millis() - FiltrationPump.StartTime) > TEMP_MEASURE_DELAY && !d_calc)
     #else
-    if (hour() == 15 && (millis() - FiltrationPump.StartTime) > 300000 && !d_calc)
+    if (hour() == 15 && (millis() - FiltrationPump.StartTime) > TEMP_MEASURE_DELAY && !d_calc)
     #endif
     {
         if (PMData.WaterTemp < PMConfig.get<double>(WATERTEMPLOWTHRESHOLD)){

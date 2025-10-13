@@ -6,6 +6,10 @@ bool FillingPump_StartCondition()
   // Check water level (HIGH means that jumper is opened)
   // So if IsActive is true, this means that the water level is OK
   InputSensor *PoolWaterLevelSensor_ = static_cast<InputSensor*>(PoolDeviceManager.GetDevice(DEVICE_POOL_LEVEL));
+  if (PoolWaterLevelSensor_ == nullptr) {
+    Debug.print(DBG_ERROR, "FillingPump_StartCondition: PoolWaterLevelSensor not found, returning false.");
+    return false;
+  }
   return (!PoolWaterLevelSensor_->IsActive());
 }
 
@@ -15,6 +19,11 @@ bool FillingPump_StopCondition()
   // So if IsActive is true, this means that the water level is OK
   InputSensor *PoolWaterLevelSensor_ = static_cast<InputSensor*>(PoolDeviceManager.GetDevice(DEVICE_POOL_LEVEL));
   Pump *FillingPump_ = static_cast<Pump*>(PoolDeviceManager.GetDevice(DEVICE_FILLING_PUMP));
+  // Sanity check on both pointers
+  if (PoolWaterLevelSensor_ == nullptr || FillingPump_ == nullptr) {
+    Debug.print(DBG_ERROR, "FillingPump_StopCondition: Device(s) not found, returning false.");
+    return false;
+  }
   return (PoolWaterLevelSensor_->IsActive() && FillingPump_->MinUpTimeReached());
 }
 
@@ -32,7 +41,7 @@ bool FiltrationPump_StartCondition() {
 
 void FiltrationPump_LoopActions() {
   // Check over and under pressure alarms
-  if ((((millis() - FiltrationPump.StartTime) > 180000) && (PMData.PSIValue < PMConfig.get<double>(PSI_MEDTHRESHOLD))) ||
+  if ((((millis() - FiltrationPump.StartTime) > PSI_ERROR_DELAY) && (PMData.PSIValue < PMConfig.get<double>(PSI_MEDTHRESHOLD))) ||
       (PMData.PSIValue > PMConfig.get<double>(PSI_HIGHTHRESHOLD)))
   {
     PSIError = true;

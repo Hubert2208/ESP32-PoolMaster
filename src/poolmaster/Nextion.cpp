@@ -53,7 +53,15 @@ void WriteSwitches()
   switches_bitmap |= (PhPump.UpTimeError & 1)       << 22;     //    4 194 304
   switches_bitmap |= (ChlPump.UpTimeError & 1)      << 21;     //    2 097 152
   //switches_bitmap |= ((digitalRead(POOL_LEVEL)==HIGH) & 1) << 20; // 1 048 576
-  switches_bitmap |= (PoolDeviceManager.GetDevice(DEVICE_POOL_LEVEL)->IsActive() & 1) << 20; // 1 048 576
+  {
+    PIN* poolLevelDevice = PoolDeviceManager.GetDevice(DEVICE_POOL_LEVEL);
+    if (poolLevelDevice != nullptr) {
+      switches_bitmap |= (poolLevelDevice->IsActive() & 1) << 20; // 1 048 576
+    } else {
+      // Si le device n'existe pas, on met le bit à 0 (ou à 1 si tu veux signaler une erreur)
+      switches_bitmap |= 0 << 20;
+    }
+  }
 
   switches_bitmap |= (PMConfig.get<bool>(ELECTRORUNMODE) & 1)   << 16;     //       65 536
   switches_bitmap |= (FillingPump.UpTimeError & 1)  << 15;     //       32 768

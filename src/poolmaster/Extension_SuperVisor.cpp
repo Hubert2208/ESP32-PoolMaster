@@ -259,8 +259,9 @@ void SuperVisor_Info_Task(void *pvParameters)
   index += addInfo(buffer+index, "Cl Tank Level low", (bool)!ChlPump.TankLevel());
   index += addInfo(buffer+index, "pH Pump Error",     (bool)PhPump.UpTimeError);
   index += addInfo(buffer+index, "Cl Pump Error",     (bool)ChlPump.UpTimeError);
-  index += addInfo(buffer+index, "Pool Level low",    (bool)!PoolDeviceManager.GetDevice(DEVICE_POOL_LEVEL)->IsActive());
-
+  auto device = PoolDeviceManager.GetDevice(DEVICE_POOL_LEVEL);
+  index += addInfo(buffer + index, "Pool Level low", (device != nullptr) ? !device->IsActive() : false);
+ 
   Serial.printf("%c%s\n", _DELIMITER_[0], buffer);
 }
 

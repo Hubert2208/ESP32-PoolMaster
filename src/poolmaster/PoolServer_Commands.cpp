@@ -298,8 +298,13 @@ void p_PumpsMaxUp(StaticJsonDocument<250>  &_jsonsdoc) {
 }
 void p_PumpMaxUp(StaticJsonDocument<250>  &_jsonsdoc) {
     u_int8_t device_index = (u_int8_t)_jsonsdoc[F("PumpMaxUp")][0];
-    PoolDeviceManager.GetDevice(device_index)->SetMaxUpTime((unsigned int)_jsonsdoc[F("PumpMaxUp")][1]*60*1000);
-    PoolDeviceManager.SavePreferences(device_index);
+    PIN* device = PoolDeviceManager.GetDevice(device_index);
+    if (device != nullptr) {
+        device->SetMaxUpTime((unsigned int)_jsonsdoc[F("PumpMaxUp")][1]*60*1000);
+        PoolDeviceManager.SavePreferences(device_index);
+    } else {
+        Debug.print(DBG_ERROR, "PumpMaxUp: Device index %d not found, configuration skipped.", device_index);
+    }
     PublishSettings();
 }
 void p_FillMinUpTime(StaticJsonDocument<250>  &_jsonsdoc) {
@@ -603,13 +608,17 @@ void p_PINConfig(StaticJsonDocument<250>  &_jsonsdoc) {
     lock_id = ((lock_id == NO_INTERLOCK)?NO_INTERLOCK:lock_id-1); // Nextion counts from 1 to 8 but GetInterlockId return from 0 to 7 (except NO_INTERLOCK which does not move)
 
     PIN *tmp_device = PoolDeviceManager.GetDevice(temp_index);
-    // Apply changes
-    tmp_device->SetPinNumber((uint8_t)_jsonsdoc[F("PINConfig")][1]);
-    tmp_device->SetActiveLevel((bool)_jsonsdoc[F("PINConfig")][2]);
-    tmp_device->SetOperationMode((bool)_jsonsdoc[F("PINConfig")][3]);
-    tmp_device->SetInterlock((uint8_t)lock_id);
-    PoolDeviceManager.InitDevicesInterlock(temp_index);
-    tmp_device->Begin();
-    PoolDeviceManager.SavePreferences(temp_index);
+    // Vérifie que le device existe avant d'appliquer les modifications
+    if (tmp_device != nullptr) {
+        tmp_device->SetPinNumber((uint8_t)_jsonsdoc[F("PINConfig")][1]);
+        tmp_device->SetActiveLevel((bool)_jsonsdoc[F("PINConfig")][2]);
+        tmp_device->SetOperationMode((bool)_jsonsdoc[F("PINConfig")][3]);
+        tmp_device->SetInterlock((uint8_t)lock_id);
+        PoolDeviceManager.InitDevicesInterlock(temp_index);
+        tmp_device->Begin();
+        PoolDeviceManager.SavePreferences(temp_index);
+    } else {
+        Debug.print(DBG_ERROR, "PINConfig: Device index %d not found, configuration skipped.", temp_index);
+    }
 }
 

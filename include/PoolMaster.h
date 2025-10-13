@@ -101,7 +101,9 @@ typedef enum DeviceManagerType {
     DEVICE_FILLING_PUMP,
     DEVICE_RELAY0,
     DEVICE_RELAY1,
-    DEVICE_POOL_LEVEL
+    DEVICE_POOL_LEVEL,
+    // ... add more devices here up to MAX_DEVICES
+    DEVICE_COUNT // Keep this last
 } DeviceManagerType_t;
 
 // Global status of the board

@@ -450,10 +450,19 @@ uint8_t NexPages_Loop(EasyNex& _myNex)
     uint32_t SrcMOMENT_Bitmap = 0;
     uint32_t SrcISRELAY_Bitmap = 0;
     //for(auto equi: Pool_Equipment)
-    for (uint8_t i = 0; i < DEVICE_POOL_LEVEL; i++)
+    for (uint8_t i = 0; i < DEVICE_COUNT - 1; i++)
     {
         PIN* equi = PoolDeviceManager.GetDevice(i);
-        
+        if (equi == nullptr) {
+            // Ajoute des valeurs par défaut ou ignore ce slot
+            strcat(SrcPINs, "-");
+            strcat(SrcPINs, "|");
+            strcat(SrcLOCKs, "-");
+            strcat(SrcLOCKs, "|");
+            // Bits à 0 pour les bitmap
+            // (optionnel: tu peux aussi mettre à 1 ou autre valeur spéciale si besoin)
+            continue;
+        }
         // Set PIN Numbers
         snprintf_P(temp,sizeof(temp),PSTR("%d"),equi->GetPinNumber());
         strcat(SrcPINs,temp);

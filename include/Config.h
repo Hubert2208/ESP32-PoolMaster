@@ -1,6 +1,6 @@
-// Firmware revisions
-#define FIRMW "ESP-4.62"
-#define TFT_FIRMW "TFT-4.0" // For compatibility
+// Firmware revisions (was moved into compiler flags in platformio.ini)
+//#define FIRMW "ESP-4.62"
+//#define TFT_FIRMW "TFT-4.0" // For compatibility
 
 // Choose Nextion version to Compile (only one choice possible)
 // NEXTION_V1 (default) for initial interface or blue theme interface
@@ -82,6 +82,12 @@
 
 //OTA port
 #define OTA_PORT    8063
+
+// Delay to strat measuring temperature to compute filtering duration need for next day.
+#define TEMP_MEASURE_DELAY  300000  // Wait 5 minutes after boot before starting temperature measurements
+
+// Delay after which PSI error is detected (to avoid false alarms at pump start)
+#define PSI_ERROR_DELAY 180000  // 3 minutes
 
 //12bits (0,06°C) temperature sensors resolution
 #define TEMPERATURE_RESOLUTION 12
