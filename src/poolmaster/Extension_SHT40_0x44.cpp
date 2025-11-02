@@ -19,7 +19,7 @@ static Adafruit_SHT4x myAdaSht40 = Adafruit_SHT4x();
 #define SHT40_I2C_Address 0x44
 
 // External functions
-extern void ExtensionsPublishTopic(char*, JsonDocument&);
+extern void PublishTopic(const char*, JsonDocument&);
 extern void lockI2C();
 extern void unlockI2C();
 
@@ -39,7 +39,15 @@ void SHT40_0x44_SaveMeasures (void *pvParameters)
     sprintf(value, "%.1f", mySHT40_0x44_Humidity);
     root["Humidity"]    = value;
 
-    ExtensionsPublishTopic(mySHT40_0x44.MQTTTopicMeasures, root);
+    char topic[50];
+    const char *roottopic = PMConfig.get<const char*>(MQTT_TOPIC);
+    sprintf(topic, "%s/%s", roottopic, mySHT40_0x44.name);
+    PublishTopic(topic, root);
+}
+
+void SHT40_0x44_Values(char* buffer)
+{
+    sprintf(buffer, "T=%d°C H=%d%%rh", (int)mySHT40_0x44_Temperature, (int)mySHT40_0x44_Humidity);
 }
 
 void SHT40_0x44_Task(void *pvParameters)
@@ -52,13 +60,11 @@ void SHT40_0x44_Task(void *pvParameters)
     myAdaSht40.getEvent(&humidity, &temp);
     mySHT40_0x44_Temperature   = temp.temperature + delta_temp;
     mySHT40_0x44_Humidity      = humidity.relative_humidity;
-
     unlockI2C();
-    
     SHT40_0x44_SaveMeasures(pvParameters);
 }
 
-ExtensionStruct SHT40_0x44_Init(const char *name, int IO)
+ExtensionStruct SHT40_0x44_Init(char *name, int IO)
 {
     /* Initialize the library and interfaces */
     mySHT40_0x44.detected = false;
@@ -78,18 +84,16 @@ ExtensionStruct SHT40_0x44_Init(const char *name, int IO)
 
     mySHT40_0x44.name                = name;
     mySHT40_0x44.Task                = SHT40_0x44_Task;
-    mySHT40_0x44.frequency           = 3000;     // Update values every xxx msecs.
+    mySHT40_0x44.frequency           = 30000;     // Update values every xxx msecs.
     mySHT40_0x44.LoadSettings        = 0;
     mySHT40_0x44.SaveSettings        = 0;
     mySHT40_0x44.LoadMeasures        = 0;
     mySHT40_0x44.SaveMeasures        = SHT40_0x44_SaveMeasures;
+    mySHT40_0x44.Values              = SHT40_0x44_Values;
     mySHT40_0x44.HistoryStats        = 0;
-    mySHT40_0x44.MQTTTopicSettings   = 0;
-    mySHT40_0x44.MQTTTopicMeasures   = ExtensionsCreateMQTTTopic(mySHT40_0x44.name, "");
 
     return mySHT40_0x44;
 }
-
 
 #endif
 

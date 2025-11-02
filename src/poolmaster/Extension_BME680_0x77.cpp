@@ -29,7 +29,7 @@ static Adafruit_BME680 myAdaBme(&Wire); // I2C_0
 #define BME688_I2C_Address 0x77 
 
 // External functions
-extern void ExtensionsPublishTopic(char*, JsonDocument&);
+extern void PublishTopic(const char*, JsonDocument&);
 extern void lockI2C();
 extern void unlockI2C();
 
@@ -51,9 +51,17 @@ void BME680_0x77_SaveMeasures (void *pvParameters)
     sprintf(value, "%.1f", myBME680_0x77_Pressure);
     root["Pressure"]    = value;
     sprintf(value, "%.1f", myBME680_0x77_Gaz);
-    root["Gaz"]         = myBME680_0x77_Gaz;
+    root["Gaz"]         = value;
 
-    ExtensionsPublishTopic(myBME680_0x77.MQTTTopicMeasures, root);
+    char topic[50];
+    const char *roottopic = PMConfig.get<const char*>(MQTT_TOPIC);
+    sprintf(topic, "%s/%s", roottopic, myBME680_0x77.name);
+    PublishTopic(topic, root);
+}
+
+void BME680_0x77_Values(char* buffer)
+{
+    sprintf(buffer, "T=%d°C H=%d%%rh P=%dhPa Gaz=%.1f", (int)myBME680_0x77_Temperature, (int)myBME680_0x77_Humidity, (int)myBME680_0x77_Pressure, myBME680_0x77_Gaz);
 }
 
 void BME680_0x77_Task(void *pvParameters)
@@ -72,11 +80,10 @@ void BME680_0x77_Task(void *pvParameters)
         myBME680_0x77_Gaz           = myAdaBme.gas_resistance / 1000.0;
     }
     unlockI2C();
-    
     BME680_0x77_SaveMeasures(pvParameters);
 }
 
-ExtensionStruct BME680_0x77_Init(const char *name, int IO)
+ExtensionStruct BME680_0x77_Init(char *name, int IO)
 {
     /* Initialize the library and interfaces */
     myBME680_0x77.detected = false;
@@ -103,14 +110,13 @@ ExtensionStruct BME680_0x77_Init(const char *name, int IO)
 
     myBME680_0x77.name                = name;
     myBME680_0x77.Task                = BME680_0x77_Task;
-    myBME680_0x77.frequency           = 30000;     // Update values every 30 secs.
+    myBME680_0x77.frequency           = 30000;     // Update values every xxx msecs.
     myBME680_0x77.LoadSettings        = 0;
     myBME680_0x77.SaveSettings        = 0;
     myBME680_0x77.LoadMeasures        = 0;
     myBME680_0x77.SaveMeasures        = BME680_0x77_SaveMeasures;
+    myBME680_0x77.Values              = BME680_0x77_Values;
     myBME680_0x77.HistoryStats        = 0;
-    myBME680_0x77.MQTTTopicSettings   = 0;
-    myBME680_0x77.MQTTTopicMeasures   = ExtensionsCreateMQTTTopic(myBME680_0x77.name, "");
 
     return myBME680_0x77;
 }

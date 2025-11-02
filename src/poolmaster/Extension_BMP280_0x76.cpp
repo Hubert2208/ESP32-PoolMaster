@@ -19,7 +19,7 @@ static Adafruit_BMP280 myAdaBmp(&Wire); // I2C_0
 #define BMP280_I2C_Address 0x76
 
 // External functions
-extern void ExtensionsPublishTopic(char*, JsonDocument&);
+extern void PublishTopic(const char*, JsonDocument&);
 extern void lockI2C();
 extern void unlockI2C();
 
@@ -39,7 +39,15 @@ void BMP280_0x76_SaveMeasures (void *pvParameters)
     sprintf(value, "%.1f", myBMP280_0x76_Pressure);
     root["Pressure"]    = value;
 
-    ExtensionsPublishTopic(myBMP280_0x76.MQTTTopicMeasures, root);
+    char topic[50];
+    const char *roottopic = PMConfig.get<const char*>(MQTT_TOPIC);
+    sprintf(topic, "%s/%s", roottopic, myBMP280_0x76.name);
+    PublishTopic(topic, root);
+}
+
+void BMP280_0x76_Values(char* buffer)
+{
+    sprintf(buffer, "T=%d°C P=%dhPa", (int)myBMP280_0x76_Temperature, (int)myBMP280_0x76_Pressure);
 }
 
 void BMP280_0x76_Task(void *pvParameters)
@@ -53,11 +61,10 @@ void BMP280_0x76_Task(void *pvParameters)
     myBMP280_0x76_Pressure      = myAdaBmp.readPressure() / 100.0;
 
     unlockI2C();
-    
     BMP280_0x76_SaveMeasures(pvParameters);
 }
 
-ExtensionStruct BMP280_0x76_Init(const char *name, int IO)
+ExtensionStruct BMP280_0x76_Init(char *name, int IO)
 {
     /* Initialize library and interfaces */
     myBMP280_0x76.detected = false;
@@ -81,14 +88,13 @@ ExtensionStruct BMP280_0x76_Init(const char *name, int IO)
 
     myBMP280_0x76.name                = name;
     myBMP280_0x76.Task                = BMP280_0x76_Task;
-    myBMP280_0x76.frequency           = 3000;     // Update values every xxx msecs.
+    myBMP280_0x76.frequency           = 30000;     // Update values every xxx msecs.
     myBMP280_0x76.LoadSettings        = 0;
     myBMP280_0x76.SaveSettings        = 0;
     myBMP280_0x76.LoadMeasures        = 0;
     myBMP280_0x76.SaveMeasures        = BMP280_0x76_SaveMeasures;
+    myBMP280_0x76.Values              = BMP280_0x76_Values;
     myBMP280_0x76.HistoryStats        = 0;
-    myBMP280_0x76.MQTTTopicSettings   = 0;
-    myBMP280_0x76.MQTTTopicMeasures   = ExtensionsCreateMQTTTopic(myBMP280_0x76.name, "");
 
     return myBMP280_0x76;
 }

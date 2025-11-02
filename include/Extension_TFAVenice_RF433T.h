@@ -3,6 +3,7 @@
 #ifndef EXTENSION_TFAVenice_RF433T_H
 #define EXTENSION_TFAVenice_RF433T_H
 
-ExtensionStruct TFAVenice_RF433T_Init(const char*, int);
+#include "SuperVisor.h"
+ExtensionStruct TFAVenice_RF433T_Init(char*, int);
 
 #endif

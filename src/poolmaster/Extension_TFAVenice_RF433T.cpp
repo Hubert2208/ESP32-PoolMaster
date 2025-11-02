@@ -18,7 +18,10 @@
 //              https://docs.m5stack.com/en/unit/rf433_t
 //              5V - GPIO 
 //https://www.osengr.org/WxShield/Downloads/Weather-Sensor-RF-Protocols.pdf
-/* Ambient Weather F007TH
+
+// TFA Venice is based on Ambient Weather F007TH
+
+/* Ambient Weather F007TH :
 Manchester coding is used at the physical layer by this sensor. Clock rate is
 1024Hz within a very small window of variation. The preamble contains a total
 of 13 bits; the first 11 are ones, followed by a 01 sequence. The next bit begins
@@ -31,6 +34,27 @@ respectively.
 modulation  = OOK_PULSE_MANCHESTER_ZEROBIT
 */
 
+// https://randomnerdtutorials.com/decode-and-send-433-mhz-rf-signals-with-arduino/
+// https://github.com/denxhun/TFA433/blob/master/src/tfa433.cpp
+// https://www.elecrow.com/wiki/315433mhz-rf-link-kit.html#resource
+// https://electroniqueamateur.blogspot.com/2021/01/communication-rf-433-mhz-avec-radiohead.html
+
+//- Transmitters:
+///  - TX-C1 (433.92MHz)
+///  - RFM85 from HopeRF http://www.hoperfusa.com/details.jsp?pid=127
+///  - BS 433 Mhz   https://fr.aliexpress.com/item/1005009706095391.html
+///                 https://www.amazon.fr/dp/B00VVDFY92
+/// - Transceivers
+///  - DR3100 (433.92MHz)
+///
+
+// Capture pulses in cu8 format with  ./rtl_433 -f 433.92M -S known -A -R 20
+// analyse captured cu8 file with with https://triq.org/pdv3
+// https://triq.org/rtl_433/PULSE_FORMATS.html
+// https://github.com/oldrev/esp32c3-rmt-pwm-demo/blob/main/main/main.c
+// https://github.com/oldrev/esp32c3-rmt-pwm-demo/blob/main/main/rmt_pwm_encoder.c
+
+
 #include <Arduino.h>
 #include "Config.h"
 #include "PoolMaster.h"
@@ -40,41 +64,107 @@ modulation  = OOK_PULSE_MANCHESTER_ZEROBIT
 #include <driver/rmt.h>
 
 ExtensionStruct myTFAVenice_RF433T = {0};
+static int      tfaGPIO = 0; // disabled by default, suggest GPIO 5
+ConfigManager   TFAConfig;
 
-#define RMT_TX_CHANNEL  (RMT_CHANNEL_0)
-//#define RMT_RX_CHANNEL  (RMT_CHANNEL_1)
-//#define RTM_TX_GPIO_NUM (GPIO) 
-//#define RTM_RX_GPIO_NUM (36)
-#define RTM_BLOCK_NUM   (1)
-#define RMT_CLK_DIV     (80) /*!< RMT counter clock divider */
-#define RMT_1US_TICKS   (80000000 / RMT_CLK_DIV / 1000000)
-#define RMT_1MS_TICKS   (RMT_1US_TICKS * 1000)
+enum TFAParamID {
+    TFA_GPIO,
+};
 
-rmt_item32_t rmtbuff[2048];
+extern void SuperVisor_Message(const char *, char*);
+extern void PublishTopic(const char*, JsonDocument&);
 
-#define RMT_CODE_H      {670, 1, 320, 0}
-#define RMT_CODE_L      {348, 1, 642, 0}
-#define RMT_START_CODE0 {4868, 1, 2469, 0}
-#define RMT_START_CODE1 {1647, 1, 315, 0}
-
-static void RF433Tsend(uint8_t* buff, size_t size)
+void Init_RF433t()
 {
- //   Debug.print(DBG_DEBUG, "[RF433Tsend] bits....");
- //   for (int i=0; i<size; i++)
- //        Debug.print(DBG_DEBUG, "[RF433Tsend]    bit[%d]=%x", i, buff[i]);
-    rmtbuff[0] = (rmt_item32_t){RMT_START_CODE0};
-    rmtbuff[1] = (rmt_item32_t){RMT_START_CODE1};
-    for (int i = 0; i < size; i++) {
-        uint8_t mark = 0x80;
-        for (int n = 0; n < 8; n++) {
-            rmtbuff[2 + i * 8 + n] = ((buff[i] & mark)) ? ((rmt_item32_t){RMT_CODE_H}) : ((rmt_item32_t){RMT_CODE_L});
-            mark >>= 1;
+    static bool driverinstalled = false;
+    if (driverinstalled) {
+        rmt_driver_uninstall(RMT_CHANNEL_0);
+        driverinstalled = false;
+    }
+    // init the chip
+    if (tfaGPIO<1) return;
+    pinMode(tfaGPIO, OUTPUT);
+    rmt_config_t config = RMT_DEFAULT_CONFIG_TX((gpio_num_t)tfaGPIO, RMT_CHANNEL_0);
+    config.clk_div = 80; // input clock 80 MHz => output clk 1 MHz
+    // config.tx_config.carrier_freq_hz = 1024;
+    // config.tx_config.carrier_en = true;
+    ESP_ERROR_CHECK(rmt_config(&config));
+    ESP_ERROR_CHECK(rmt_driver_install(config.channel, 0, 0));
+    driverinstalled = true;
+  /*
+    -#define RMT_TX_CHANNEL  (RMT_CHANNEL_0)
+    //#define RMT_RX_CHANNEL  (RMT_CHANNEL_1)
+    -//#define RTM_TX_GPIO_NUM (GPIO)
+    -//#define RTM_RX_GPIO_NUM (36)
+    -#define RTM_BLOCK_NUM   (1)
+    -#define RMT_CLK_DIV     (80) !< RMT counter clock divider 
+    -#define RMT_1US_TICKS   (80000000 / RMT_CLK_DIV / 1000000)
+    -#define RMT_1MS_TICKS   (RMT_1US_TICKS * 1000)
+    -#define RMT_CODE_H      {670, 1, 320, 0}
+    -#define RMT_CODE_L      {348, 1, 642, 0}
+    -#define RMT_START_CODE0 {4868, 1, 2469, 0}
+    -#define RMT_START_CODE1 {1647, 1, 315, 0}
+    // Configure the RMT peripheral
+    rmt_config_t config;
+    config.gpio_num = tfaGPIO;
+    config.rmt_mode = RMT_MODE_CARRIER;
+    config.channel = RMT_CHANNEL;
+    config.clk_div = 80;
+    // Initialize the RMT peripheral
+    rmt_config(&config);
+    rmt_driver_install(config.channel, 0, 0);
+    // Start the carrier signal
+    rmt_carrier_mode_start(RMT_CHANNEL, 1, true, &carrier_config);
+*/
+}
+
+void convertToRMT_ManchesterOOK(uint8_t* buff, int sizebits, rmt_item32_t *rmtitem, int clock)
+{
+    // using Manchester code
+    // https://www.computer-dictionary-online.org/definitions-m/manchester-encoding
+    for (int i=0; i<sizebits; i++) {
+        uint8_t byte = buff[i/8];
+        uint8_t bit =  (byte >> (7-(i%8))) & 1; // in BigEndian order!
+        rmtitem[i].duration0 = clock/2; //0.45;
+        rmtitem[i].duration1 = clock/2; //0.55;
+        if (bit == 1) {
+            rmtitem[i].level0 = 1;
+            rmtitem[i].level1 = 0;
+        }
+        else {
+            rmtitem[i].level0 = 0;
+            rmtitem[i].level1 = 1;
         }
     }
-    for (int i = 0; i < 8; i++) {
-        ESP_ERROR_CHECK(rmt_write_items(RMT_TX_CHANNEL, rmtbuff, 42, false));
-        ESP_ERROR_CHECK(rmt_wait_tx_done(RMT_TX_CHANNEL, portMAX_DELAY));
+}
+/*
+void convertToRMTManchesterOOKDifferential(uint8_t* buff, int sizebits, rmt_item32_t *rmtitem, int clock)
+{
+    // using Differential Manchester code
+    // apparently TFAVenice does not use it
+    // https://www.computer-dictionary-online.org/definitions-m/manchester-encoding
+    static uint8_t lastbit = 1;
+    rmtitem[0].level0 = 0;
+    rmtitem[0].level1 = 1;
+    for (int i=1; i<sizebits; i++) {
+        uint8_t byte = buff[i/8];
+        uint8_t bit =  (byte >> (7-(i%8))) & 1; // in BigEndian order!
+        rmtitem[i].duration1 = clock/2;
+        rmtitem[i].duration0 = clock/2;
+        if (lastbit == bit)
+             rmtitem[i].level0 = rmtitem[i-1].level1;
+        else rmtitem[i].level0 = (rmtitem[i-1].level0==0) ? 1 : 0;
+        lastbit = bit;
+        rmtitem[i].level1 = (rmtitem[i].level0==0) ? 1 : 0;
     }
+}*/
+
+static void RF433Tsend(uint8_t* buff, int sizebits)
+{
+    rmt_item32_t *TFAVeniceData = (rmt_item32_t*)calloc(sizebits, sizeof(rmt_item32_t));
+    convertToRMT_ManchesterOOK(buff, sizebits, TFAVeniceData, 976); //  1000ms/TFAClock=1024Hz => width=976 ms
+    rmt_write_items(RMT_CHANNEL_0, TFAVeniceData, sizebits, true);
+    free(TFAVeniceData);
 }
 
 static uint8_t lfsr_digest8(uint8_t const message[], unsigned bytes, uint8_t gen, uint8_t key)
@@ -84,17 +174,9 @@ static uint8_t lfsr_digest8(uint8_t const message[], unsigned bytes, uint8_t gen
     for (unsigned k = 0; k < bytes; ++k) {
         uint8_t data = message[k];
         for (int i = 7; i >= 0; --i) {
-            // fprintf(stderr, "key is %02x\n", key);
-            // XOR key into sum if data bit is set
-            if ((data >> i) & 1)
-                sum ^= key;
-
-            // roll the key right (actually the lsb is dropped here)
-            // and apply the gen (needs to include the dropped lsb as msb)
-            if (key & 1)
-                key = (key >> 1) ^ gen;
-            else
-                key = (key >> 1);
+            if ((data >> i) & 1)  sum ^= key;
+            if (key & 1)          key = (key >> 1) ^ gen;
+            else                  key = (key >> 1);
         }
     }
     return sum;
@@ -107,33 +189,29 @@ static void TFAVeniceFillData(uint8_t *data, uint8_t *input, int bitpos, int bit
     int nbbytes   = bitlenght / 8 + 1;
 
     for (int i = 0; i < nbbytes; i++, startbyte++) {
-            data[startbyte] |= input[i] >> (startbit);
-            if (startbit)                 
-                data[startbyte+1] |= input[i] << (8-startbit);       
+        data[startbyte] |= input[i] >> (startbit);
+        if (startbit) data[startbyte+1] |= input[i] << (8-startbit);       
     }
 }
 
 void TFAVenice_RF433T_Task(void *pvParameters)
 {
-    if (!myTFAVenice_RF433T.detected) return;
+    if (tfaGPIO<1) return;
 
-// debug
-// #define TFA_CHANNEL 0x00         // TFA is using channel 1 of 8 (0-7)
-#define TFA_CHANNEL 0x03
-double watertemp = PMData.WaterTemp;
-// debug
-    
-    uint8_t data[30]  = { 0 };// for (int i=0; i<30; i++) data[i] = 0x0;
-    uint8_t seq[7]    = { 0 };//for (int i=0; i<6; i++) seq[i] = 0x0;
-    uint8_t preamb2[2];
-    uint8_t preamb1[2];
-    // The preamble contains a total of 13 bits; the first 11 are ones, followed by a 01 sequence
-    preamb1[0] = 0x00; // 00000000
-    preamb1[1] = 0x10; // 00010000
-    preamb2[0] = 0x3F; // 00111111
-    preamb2[1] = 0xFA; // 11111010
+    #define TFA_CHANNEL 0x00         // TFA is using channel 1 of 8 (0-7)
+    uint8_t data[30]  = { 0 };
+    uint8_t seq[7]    = { 0 };
+    uint8_t preamb[2];
+    uint8_t preamb0[2];
+   
+    // with F07TH, tThe preamble contains a total of 13 bits; the first 11 are ones, followed by a 01 sequence
+    // TFA Venice used a similar scheme, just 1st preamble is different 
+    preamb0[0] = 0x00; // 00000000 with TFAVenice
+    preamb0[1] = 0x10; // 0001____
+    preamb[0] = 0x3F; // 00111111
+    preamb[1] = 0xFA; // 1111101_
 
-    /* the sequence, 6 bytes
+    /* the sequence, 6 bytes + 2 bits 00
     Byte 0   Byte 1   Byte 2   Byte 3   Byte 4   Byte 5
     xxxxMMMM IIIIIIII BCCCTTTT TTTTTTTT HHHHHHHH MMMMMMMM
     - x: Unknown 0x04 on F007TH/F012TH
@@ -145,62 +223,98 @@ double watertemp = PMData.WaterTemp;
     - H: Humidity (8 bits)
     - M: Message integrity check LFSR Digest-8, gen 0x98, key 0x3e, init 0x64 */
 
-    unsigned int temp_raw = (((watertemp / 100.0 * 9 / 5) + 32) * 10 ) + 400;
-    seq[0] = 0x46;             // 0x46 or 0x45 for F007TH/F012TH/F016TH, mine is 0x46
-    seq[1] = 0x41;             // random id
-    seq[2] = 0x00;             // all 0 so Battery=0 (OK), 
+    unsigned int temp_raw = int(PMData.WaterTemp * 90.0 / 5) + 720;
+    seq[0] = 0x46;           // 0x46 or 0x45 for F007TH/F012TH/F016TH, mine is 0x46
+    seq[1] = 0x48;           // random id
+    seq[2] = 0x00;           // all 0 so Battery=0 (OK), 
     seq[2] |= TFA_CHANNEL << 4;
     seq[2] |= (temp_raw & 0xF00) >> 8;
     seq[3] = temp_raw & 0xFF;
-    seq[4] = 0x32;             // any, not used by TFA Venice
-    seq[5] = lfsr_digest8(seq, 5, 0x98, 0x3e) ^ 0x64;
+    seq[4] = 50;             // % humidity, not used by TFA Venice
+    seq[5] = lfsr_digest8(seq, 5, 0x98, 0x3e) ^ 0x64;   // CRC
     seq[6] = 0x00;
   
     int bitpos = 0;
-    #define _lenpreamb1_   12
-    #define _lenpreamb2_   15
-    #define _lenseq_       50
-    TFAVeniceFillData(data, preamb1, bitpos, _lenpreamb1_);  bitpos += _lenpreamb1_;
-    TFAVeniceFillData(data, seq,     bitpos, _lenseq_);      bitpos += _lenseq_;
-    TFAVeniceFillData(data, preamb2, bitpos, _lenpreamb2_);  bitpos += _lenpreamb2_;
-    TFAVeniceFillData(data, seq,     bitpos, _lenseq_);      bitpos += _lenseq_;
-    TFAVeniceFillData(data, preamb2, bitpos, _lenpreamb2_);  bitpos += _lenpreamb2_;
-    TFAVeniceFillData(data, seq,     bitpos, _lenseq_);
+    #define _lenpreamb0_ 12 // F007TH uses 3 times the same preamb, TFAVenice uses a different 1st preamble.
+    #define _lenpreamb_  15 // 13 for F007TH
+    #define _lenseq_     50 // 48 for F007TH
     
-    RF433Tsend(data, 24);
+    TFAVeniceFillData(data, preamb0, bitpos, _lenpreamb0_);
+    bitpos += _lenpreamb0_;
+    TFAVeniceFillData(data, seq,    bitpos, _lenseq_);
+    bitpos += _lenseq_;
+    TFAVeniceFillData(data, preamb, bitpos, _lenpreamb_);
+    bitpos += _lenpreamb_;
+    TFAVeniceFillData(data, seq,    bitpos, _lenseq_);
+    bitpos += _lenseq_;
+    TFAVeniceFillData(data, preamb, bitpos, _lenpreamb_);
+    bitpos += _lenpreamb_;
+    TFAVeniceFillData(data, seq,    bitpos, _lenseq_);
+    bitpos += _lenseq_;
+    RF433Tsend(data, bitpos); // bitpos = 192
 }
 
-ExtensionStruct TFAVenice_RF433T_Init(const char* name, int IO)
+void TFAVenice_RF433T_Values(char* buffer)
 {
-    // search and init the chip
-    rmt_config_t txconfig;
-    txconfig.rmt_mode                 = RMT_MODE_TX;
-    txconfig.channel                  = RMT_TX_CHANNEL;
-    txconfig.gpio_num                 = gpio_num_t(IO);
-    txconfig.mem_block_num            = RTM_BLOCK_NUM;
-    txconfig.tx_config.loop_en        = false;
-    txconfig.tx_config.carrier_en     = false;
-    txconfig.tx_config.idle_output_en = true;
-    txconfig.tx_config.idle_level     = rmt_idle_level_t(0);
-    txconfig.clk_div                  = RMT_CLK_DIV;
-    if (rmt_config(&txconfig) == ESP_OK) myTFAVenice_RF433T.detected = true;
-    if ((myTFAVenice_RF433T.detected) && (rmt_driver_install(txconfig.channel, 0, 0) != ESP_OK)) {
-        myTFAVenice_RF433T.detected = false;
-        Debug.print(DBG_INFO,"[TFAVenice_RF433TInit] no TFAVenice_RF433T detected");
+    if (tfaGPIO > 0)
+         sprintf(buffer, "GPIO=%d", tfaGPIO);
+    else sprintf(buffer, "none");
+}
+
+void TFAVenicePubMQTT()
+{
+    // Hey MQTT
+    DynamicJsonDocument root(1024);
+    root["GPIO"] = tfaGPIO;
+    char topic[48];
+    const char *roottopic = PMConfig.get<const char*>(MQTT_TOPIC);
+    if (strcmp(roottopic, "") == 0) return;
+    sprintf(topic, "%s/%s", roottopic, myTFAVenice_RF433T.name);
+    PublishTopic(topic, root);   
+}
+
+void TFAVenice_RF433T_LoadSettings(void *pvParameters)
+{
+    static bool initvalues = true;
+    if (initvalues) {
+        initvalues = false;
+        tfaGPIO = TFAConfig.get<uint8_t>(TFA_GPIO);
+        Init_RF433t();
+        return;
     }
+    char buffer[I2C_MAXMESSAGE+5] = {0};
+    SuperVisor_Message("GET_TFA_VENICE", buffer);
+
+    if (strcmp(buffer, "none")!=0) {
+        int newgpio=tfaGPIO;
+        sscanf(buffer, "%d", &newgpio);
+        if (newgpio != tfaGPIO) {
+            tfaGPIO = newgpio;
+            Init_RF433t();
+            TFAConfig.put<uint8_t>(TFA_GPIO, tfaGPIO);
+            TFAVenicePubMQTT();
+        }
+    }
+}
+
+ExtensionStruct TFAVenice_RF433T_Init(char* name, int defaultIO)
+{
+    TFAConfig.SetNamespace("TFAVenice");
+    TFAConfig.initParam(TFA_GPIO, "TFA_GPIO", (uint8_t)defaultIO);
 
     // Init structure
     myTFAVenice_RF433T.name         = name;
+    myTFAVenice_RF433T.detected     = true;
     myTFAVenice_RF433T.Task         = TFAVenice_RF433T_Task;
-    myTFAVenice_RF433T.frequency    = 1000;     //  check and broadcast temperature each minute   
-    myTFAVenice_RF433T.LoadSettings = 0;
+    myTFAVenice_RF433T.frequency    = 53000;     //  check and broadcast temperature every 53 secs (per TFA)
+    myTFAVenice_RF433T.LoadSettings = TFAVenice_RF433T_LoadSettings;
     myTFAVenice_RF433T.SaveSettings = 0;
     myTFAVenice_RF433T.LoadMeasures = 0;
     myTFAVenice_RF433T.SaveMeasures = 0;
+    myTFAVenice_RF433T.Values       = TFAVenice_RF433T_Values;
     myTFAVenice_RF433T.HistoryStats = 0;
 
     return myTFAVenice_RF433T;
 }
 
 #endif
-

@@ -2,7 +2,8 @@
 #ifndef EXTENSION_SHT40_0x44_H
 #define EXTENSION_SHT40_0x44_H
 
-ExtensionStruct SHT40_0x44_Init(const char*, int);
+#include "SuperVisor.h"
+ExtensionStruct SHT40_0x44_Init(char*, int);
 
 #endif
 

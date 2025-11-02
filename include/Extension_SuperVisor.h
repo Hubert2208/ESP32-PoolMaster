@@ -1,10 +1,12 @@
-// Air TechRoom Temp., Pressure and Humidity  
+// SuperVisor Definition Class
+
 #ifndef EXTENSION_SUPERVISOR_H
 #define EXTENSION_SUPERVISOR_H
 
-ExtensionStruct SuperVisor_Init(const char*, int);
-ExtensionStruct SuperVisor_Info_Init(const char*, int);
+#include "SuperVisor.h"
+ExtensionStruct SuperVisor_Init(char*, int);
+ExtensionStruct SuperVisor_Info_Init(char*, int);
+ExtensionStruct noInit(char*, int);
 
-#define SUPERVISOR_I2C_Address 0x07
 #endif
 

@@ -3,6 +3,7 @@
 #ifndef EXTENSION_WATERMETER_PULSE_H
 #define EXTENSION_WATERMETER_PULSE_H
 
-ExtensionStruct WaterMeterPulse_Init(const char*,int);
+#include "SuperVisor.h"
+ExtensionStruct WaterMeterPulse_Init(char*,int);
 
 #endif

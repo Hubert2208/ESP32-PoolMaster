@@ -14,7 +14,7 @@
 //
 // GPIOs Available :
 //  GPIO O5   --> Input+Output + pullup/down
-//  GPIO 12   --> Input+Output + pullup/down
+//  GPIO 12   --> Input+Output + pullup/down, must be a 0V at boot time
 //  GPIO 14   --> Input+Output + pullup/down
 //  GPIO 15   --> Input(pullup) + output 
 //  GPIO 35   --> Input only, no pullup/pulldown
@@ -28,17 +28,11 @@
 #include "Extension_BMP280_0x76.h" 
 #include "Extension_SHT40_0x44.h"
 
-#define _GPIO_TFA_RF433T_        5  // Water Temperature broadcasted to TFA 433Mhz receiver
-#define _GPIO_WATERMETER_PULSE_ 15  // Count WaterMeter pulse from external reader.
+#define _GPIO_TFA_RF433T_        0 // disable by default, suggest GPIO 5  - Water Temperature broadcasted to TFA 433Mhz receiver
+#define _GPIO_WATERMETER_PULSE_  0 // disable by default, suggest GPIO 15 - Count WaterMeter pulse from external reader.
 #define _I2C_                    0
 #define _OTHER_                 -1
-
-struct ListExtensions
-{
-    const char *name;   // name of the extension
-    initfunction init;  // function to init the extension
-    int port;           // Port (GPIO, I2C, etc...)
-};
+#define LOADSETTINGSFREQUENCY   1500 // check every xxx ms if SuperVisor has new settings (wifi, mqtt, watermeter, etc)
 
 struct ListExtensions knownI2C[] = {
     {"SUPERVISOR",  0, SUPERVISOR_I2C_Address},  // 0x07
@@ -52,36 +46,41 @@ struct ListExtensions knownI2C[] = {
 
 // *******************************************
 // * This is where we declare our extensions *
+// * And all monitored Loops (functions)
 // *******************************************
 struct ListExtensions myListExtensions[] = {
-    {"SuperVisor",              SuperVisor_Init,        _I2C_ },   // Talk to SuperVisor via I2C
-    {"SuperVisor",              SuperVisor_Info_Init,   _OTHER_ }, // Talk to SuperVisor via Serial
-    {"PoolRoom/TFAVenice",      TFAVenice_RF433T_Init,  _GPIO_TFA_RF433T_ },
-    {"PoolRoom/TempHumidity",   SHT40_0x44_Init,        _I2C_ },
-    {"PoolRoom/Temperature",    BMP280_0x76_Init,       _I2C_ },
-    {"TechRoom/TempHumidity",   BME680_0x77_Init,       _I2C_ },
-    {"TechRoom/WaterMeter",     WaterMeterPulse_Init,   _GPIO_WATERMETER_PULSE_ },
-//    {"PoolRoom/MiLight",        MiLight_Init,           _I2C_ },
-//    {"PoolRoom/PoolCover",      PoolCover_Init,         _OTHER_ },
-//    {"TechRoom/PoolHeatPump",   PoolHeatPump_Init,      _OTHER_ },
+    // NAME (max 15chars), INIT_FUNCTION,  PORT, SETTINGS STACK SIZE, TASK STACK SIZE
+    {"SuperVisor",  SuperVisor_Init,        _I2C_   , 2048, 4096}, // Talk to SuperVisor via I2C
+    {"SHT40",       SHT40_0x44_Init,        _I2C_   , 0, 2048},
+    {"BMP280",      BMP280_0x76_Init,       _I2C_   , 0, 2048},
+    {"BME680",      BME680_0x77_Init,       _I2C_   , 0, 2048},
+    //{"WaterMeter",  WaterMeterPulse_Init,   _GPIO_WATERMETER_PULSE_, 2048, 2048 },
+//    {"TFA_Venice",  TFAVenice_RF433T_Init,  _GPIO_TFA_RF433T_ , 2048, 2048 },},
+
+   // Futur extensions
+//    {"MiLight",        MiLight_Init,           _I2C_ },
+//    {"PoolCover",      PoolCover_Init,         _OTHER_ },
+//    {"HeatPump",   PoolHeatPump_Init,      _OTHER_ },
+
+    //  Monitor free stack of all PoolMaster Loops
+    {"loopTask",        noInit,           0       , 0   , 0}, // the main loop
+    {"AnalogPoll",      noInit,           0       , 0   , 0},
+    {"ProcessCommand",  noInit,           0       , 0   , 0},
+    {"PoolMaster",      noInit,           0       , 0   , 0},
+    {"GetTemp",         noInit,           0       , 0   , 0},
+    {"ORPRegulation",   noInit,           0       , 0   , 0},
+    {"pHRegulation",    noInit,           0       , 0   , 0},
+    {"StatusLights",    noInit,           0       , 0   , 0},
+    {"MeasuresPublish", noInit,           0       , 0   , 0},
+    {"SettingsPublish", noInit,           0       , 0   , 0},
+    {"UpdateTFT",       noInit,           0       , 0   , 0},
+    {"HistoryStats",    noInit,           0       , 0   , 0},
 };
 // *******************************************
 
 void stack_mon(UBaseType_t &);
 ExtensionStruct *myExtensions = 0;
-static int _NbExtensions = 0;
-
-/* ********************************************************
- * The Async MQTT engine for Extensions
- * Can't use the Poolmaster mqtt instance
- * because of how we store and read values in mqtt broker
-*/
-AsyncMqttClient ExtensionsMqttClient;
-#define PAYLOAD_BUFFER_LENGTH 200
-static bool ExtensionsMqttOnRead = false;
-static char ExtensionsMqttMsg[PAYLOAD_BUFFER_LENGTH] = "";
-static char *ExtensionsMqttMsgTopic = 0;
-TimerHandle_t mqttExtensionsReconnectTimer;
+int _NbExtensions = 0;
 
 // Removes the duplicates "/" from the string provided as an argument
 static void mqttRemoveDoubleSlash(char *str)
@@ -103,71 +102,6 @@ static void mqttRemoveDoubleSlash(char *str)
   }
 }
 
-void connectExtensionsToMqtt() {
- //  Serial.println("Extensions Connecting to MQTT...");
-    ExtensionsMqttClient.connect();
-}
-void onExtensionsMqttConnect(bool sessionPresent) {
- //   Serial.println("Extensions Connected to MQTT.");
- //   Serial.print("Session present: ");
- //   Serial.println(sessionPresent);
-}
-void onExtensionsMqttDisconnect(AsyncMqttClientDisconnectReason reason) {
-//    Serial.println("Extensions Disconnected from MQTT.");
-  
-    if (WiFi.isConnected()) {
-      xTimerStart(mqttExtensionsReconnectTimer, 0);
-    }
-  }
-void onExtensionsMqttSubscribe(uint16_t packetId, uint8_t qos) {
- //   Serial.println("Extensions Subscribe acknowledged.");
- //   Serial.print("  packetId: ");
- //   Serial.println(packetId);
- //   Serial.print("  qos: ");
- //   Serial.println(qos);
-  }
-void onExtensionsMqttUnsubscribe(uint16_t packetId) {
- //   Serial.println("Extensions Unsubscribe acknowledged.");
- //   Serial.print("  packetId: ");
-  //  Serial.println(packetId);
-}
-// Extension MQTT callback reading RETAINED values
-void onExtensionsMqttMessage(char *topic, char *payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total)
-{
-    if (!ExtensionsMqttMsgTopic) return;
-    if (!topic) return;
-    if (strcmp(topic, ExtensionsMqttMsgTopic) == 0)
-        for (uint8_t i = 0; i < len; i++)
-            ExtensionsMqttMsg[i] = payload[i];         
-}
-void onExtensionsMqttPublish(uint16_t packetId) {
- // Serial.println("Extensions Publish acknowledged.");
- // Serial.print("  packetId: ");
- // Serial.println(packetId);
-}
-void ExtensionsMqttInit()
-{   
-   // ExtensionsMqttClient.disconnect();
-    // Init 2nd Async MQTT session for Extensions
-    mqttExtensionsReconnectTimer = xTimerCreate("mqttExtensionsTimer",
-        pdMS_TO_TICKS(2000), pdFALSE, (void*)0, reinterpret_cast<TimerCallbackFunction_t>(connectExtensionsToMqtt));
- 
-    ExtensionsMqttClient.onConnect(onExtensionsMqttConnect);
-    ExtensionsMqttClient.onDisconnect(onExtensionsMqttDisconnect);
-    ExtensionsMqttClient.onSubscribe(onExtensionsMqttSubscribe);
-    ExtensionsMqttClient.onUnsubscribe(onExtensionsMqttUnsubscribe);
-    ExtensionsMqttClient.onMessage(onExtensionsMqttMessage);
-    ExtensionsMqttClient.onPublish(onExtensionsMqttPublish);
-    ExtensionsMqttClient.setServer(PMConfig.get<uint32_t>(MQTT_IP),PMConfig.get<uint32_t>(MQTT_PORT));
-    if (strlen(PMConfig.get<const char*>(MQTT_LOGIN))>0)
-        ExtensionsMqttClient.setCredentials(PMConfig.get<const char*>(MQTT_LOGIN),PMConfig.get<const char*>(MQTT_PASS));
-   if (strlen(PMConfig.get<const char*>(MQTT_ID))>0)
-        ExtensionsMqttClient.setClientId(PMConfig.get<const char*>(MQTT_ID));
-
-    ExtensionsMqttClient.connect();
-    //Debug.print(DBG_INFO, "[ExtensionsMqttInit] Connect to MQTT rc=%d", ExtensionsMqttClient.state());
-}
-
 char *ExtensionsCreateMQTTTopic(const char *t1, const char *t2)
 {   
     const char *thetopic = PMConfig.get<const char*>(MQTT_TOPIC);
@@ -175,63 +109,28 @@ char *ExtensionsCreateMQTTTopic(const char *t1, const char *t2)
     sprintf(topic, "%s/%s%s", thetopic, t1, t2);
     return topic;
 }
-void ExtensionsPublishTopic(char *topic, JsonDocument &root)
-{
-    ExtensionsMqttClient.connect();
-    if (!ExtensionsMqttClient.connected()) {
-       // Debug.print(DBG_ERROR, "[ExtensionsPublishTopic] Failed to connect to the MQTT broker for %s", topic);
-        return;
-    }
-    char Payload[PAYLOAD_BUFFER_LENGTH];
-    size_t n = serializeJson(root, Payload);
-    mqttRemoveDoubleSlash(topic);
 
-    if (ExtensionsMqttClient.publish(topic, 1, true, Payload, n) != 0) {
-        delay(50);
-//        Debug.print(DBG_DEBUG, "Publish Extensions: %s - size: %d/%d", Payload, root.size(), n);
-        return;
-    }
-
-    Debug.print(DBG_DEBUG, "Unable to publish: %s", Payload);
-}
-
-int ExtensionsReadRetainedTopic(char *topic, JsonDocument &root)
-{
-    int nbTry = 5;
-    while (ExtensionsMqttOnRead) {
-        delay(200);
-        nbTry--;
-        if (!nbTry)
-            ExtensionsMqttOnRead = false;
-    }
-    if (!ExtensionsMqttClient.connected()) {
-      //  Debug.print(DBG_ERROR, "[ExtensionsReadRetainedTopic] Failed to connect to the MQTT broker for %s", topic);
-        return 0;
-    }
-    mqttRemoveDoubleSlash(topic);
-    ExtensionsMqttOnRead = true;
-    ExtensionsMqttMsgTopic = topic;
-    ExtensionsMqttClient.subscribe(topic, 1);
-    ExtensionsMqttClient.unsubscribe(topic);
-    ExtensionsMqttOnRead = false;
-    if (!ExtensionsMqttMsg[0]) return 0;
-
-    deserializeJson(root, ExtensionsMqttMsg);
-    ExtensionsMqttOnRead = false;
-    ExtensionsMqttMsgTopic = 0;
-    ExtensionsMqttMsg[0] = '\0';
-    return 1;
-}
-
-/* **********************************
- * End of MQTT 
- * **********************************
- * /
 
 /* **********************************
  * Init All Extensions and run loops
  * **********************************
 */
+
+void ExtensionsLoadSettings(void *pvParameters)
+{
+    ExtensionStruct *TheExtension = (ExtensionStruct *)pvParameters;
+
+    if (!TheExtension->detected)     return;
+    if (!TheExtension->LoadSettings) return;
+
+    vTaskDelay(1000 / portTICK_PERIOD_MS); // Scheduling offset
+    while (!startTasks) delay(200);
+
+    for (;;) {
+        TheExtension->LoadSettings(pvParameters);
+        vTaskDelay(pdMS_TO_TICKS(LOADSETTINGSFREQUENCY));
+    }
+}
 
 void ExtensionsLoop(void *pvParameters)
 {
@@ -240,12 +139,10 @@ void ExtensionsLoop(void *pvParameters)
     if (!TheExtension->detected) return;
     if (!TheExtension->Task)     return;
 
+    vTaskDelay(1500 / portTICK_PERIOD_MS); // Scheduling offset
     while (!startTasks) delay(200);
-    vTaskDelay(500 / portTICK_PERIOD_MS); // Scheduling offset
 
-   // Debug.print(DBG_INFO, "[Start ExtensionLoop] name %s freq: %d ms", TheExtension->name, TheExtension->frequency);
     for (;;) {
-    //    Debug.print(DBG_INFO, "[In ExtensionLoop] name %s freq: %d ms", TheExtension->name, TheExtension->frequency);
         TheExtension->Task(pvParameters);
         vTaskDelay(pdMS_TO_TICKS(TheExtension->frequency));
     }
@@ -271,28 +168,40 @@ void ExtensionsInit()
         else if (error == 4) Debug.print(DBG_INFO,"\tI2C device unknown, error at address 0x%02X", address);
     }
     Debug.print(DBG_INFO, "...done");
-
-    ExtensionsMqttInit();
-    
-    Debug.print(DBG_INFO, "[Extensions Init Action]");
     if (sizeof(myListExtensions[0]))
         _NbExtensions = sizeof(myListExtensions)  / sizeof(myListExtensions[0]);
     Debug.print(DBG_INFO, "[Extensions Init] with %d extensions", _NbExtensions);
 
     if (_NbExtensions) myExtensions = (ExtensionStruct*) malloc(_NbExtensions * sizeof(ExtensionStruct));
 
-    for (int i = 0; i < _NbExtensions; i++) {    
+    for (int i = 0; i < _NbExtensions; i++) {
         myExtensions[i] = myListExtensions[i].init(myListExtensions[i].name, myListExtensions[i].port);
-        if (myExtensions[i].detected)
+        if (myExtensions[i].detected) {
+            char taskname[17]; // MAX 16
+            if (myExtensions[i].LoadSettings) {
+            sprintf(taskname, "%sS", myExtensions[i].name);
             xTaskCreatePinnedToCore(
-                ExtensionsLoop,
-                myExtensions[i].name,
-                3072, // can we decrease this value ??
+                ExtensionsLoadSettings,
+                taskname,
+                myListExtensions[i].settingsStackHighWaterMark,
                 &myExtensions[i],
                 1,
-                nullptr,
-                0); // run extextions from the other core
+                NULL, //&myListExtensions[i].settingsHandle,
+                0); // run extentions from the other core
+            }
+            if (myExtensions[i].Task) {
+            sprintf(taskname, "%s", myExtensions[i].name);
+            xTaskCreatePinnedToCore(
+                ExtensionsLoop,
+                taskname,
+                myListExtensions[i].taskStackHighWaterMark,
+                &myExtensions[i],
+                1,
+                NULL, //&myListExtensions[i].taskHandle,
+                0); // run extentions from the other core
+            }
         }
+    }
 }
 /*
 void ExtensionsPublishSettings(void *pvParameters)

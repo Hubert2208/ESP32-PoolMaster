@@ -2,7 +2,8 @@
 #ifndef EXTENSION_BME680_0x77_H
 #define EXTENSION_BME680_0x77_H
 
-ExtensionStruct BME680_0x77_Init(const char*, int);
+#include "SuperVisor.h"
+ExtensionStruct BME680_0x77_Init(char*, int);
 
 #endif
 
