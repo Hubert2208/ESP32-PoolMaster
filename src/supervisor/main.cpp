@@ -67,6 +67,7 @@ volatile bool mustRebootSuperVisor    = false;
 volatile bool mustRebootNextion       = false;
 volatile bool mustCreateHAEntities    = false;
 volatile bool mustCleanHAEntities     = false;
+volatile bool mustRestartMQTT         = false;
 
 
 const char* defaultUpdatehost         = "myUpdateHttpServer:myport";
@@ -82,9 +83,9 @@ const char* defaultpapertrailport     = "21858";
 const char* defaultmqtt_server        = "";
 const char* defaultmqtt_port          = "1883";
 const char* defaultmqtt_topic         = "PoolMaster";
-const char* defaultmqtt_username      = "mymqttusername";
-const char* defaultmqtt_password      = "mymqttpassword";
-const char* defaulthomeassistanttopic = "homeassistant";
+const char* defaultmqtt_username      = "";
+const char* defaultmqtt_password      = "";
+const char* defaulthomeassistanttopic = "";
 
 AsyncMqttClient MqttClient;
 TimerHandle_t MqttReconnectTimer = 0;
@@ -700,6 +701,10 @@ void mqttPublish()
   char Payload[2048];
   char topic[_LTOPIC_];
   const char* roottopic = SVSettings["MQTT Topic"];
+  if (!roottopic) return;
+  if (roottopic[0] == '/') roottopic++;
+  if (strcmp(roottopic, "")==0) return;
+
   sprintf(topic, "%s/PoolMaster", roottopic);
 
   connectToMqtt();
@@ -1411,7 +1416,7 @@ let homeassistantcreate = "off";
       <td><input type="password" name="MQTT Password" id="MQTT Password" size=22></td>
     </tr>
     <tr>
-      <td>Home Assistant Topic:</td>
+      <td>Home Assistant <br> Discovery Topic <br> (homeassistant):</td>
       <td><input type="text" name="HOME Assistant" id="HOME Assistant" size=22></td>
     </tr>
     <tr><td>&nbsp</td></tr>
@@ -1539,11 +1544,6 @@ let homeassistantcreate = "off";
   <br><br>
   <div class="actiontable" id="action-buttons-container"></div>
   <br>
-  <br>
-  <form action="/set">
-    <input type="hidden" id="createHAEntities" name="createHAEntities">
-    <input type="submit" class="greenButton" value="Create HomeAssistant Entities">
-  </form>
   <br>
   <script>
     function SendCmd(cmd) {
@@ -1810,29 +1810,33 @@ void WebHandleSVSettings(AsyncWebServerRequest *request)
   request->send(200, "text/plain", Payload);
 }
 
-void WebSetActionManageParam(AsyncWebServerRequest *request, const char* key) 
+bool WebSetActionManageParam(AsyncWebServerRequest *request, const char* key) 
 {
-  if (request->hasParam(key)) {
-      String setting=request->arg(key);
-      if ((setting != "") && (setting != "@@@@@@@@@@@@@@@")) {
-        SVSettings[key] = String(setting);;
-        preferences.putString(key, setting);
-      }
+  bool ret = false;
+  if (!request->hasParam(key)) return ret;
+  String setting=request->arg(key);
+  if (setting == "@@@@@@@@@@@@@@@") return ret; // dummy value
+  String old = SVSettings[key];
+  // pre specific check
+  if ((strcmp(key, "MQTT Topic") == 0) && (setting[0]== '/')) 
+    setting.remove(0,1);
+  if (old != setting) {
+    SVSettings[key] = String(setting);
+    preferences.putString(key, setting);
+    ret = true;
     }
+  return ret;
 }
+
 void WebSetAction(AsyncWebServerRequest *request) 
 {
   preferences.begin("PMSV", false);
-  WebSetActionManageParam(request, "MQTT Server");
-  WebSetActionManageParam(request, "MQTT Port");
-  WebSetActionManageParam(request, "MQTT Topic");
-  WebSetActionManageParam(request, "MQTT Username");
-  WebSetActionManageParam(request, "MQTT Password");
-  WebSetActionManageParam(request, "HOME Assistant");
-  WebSetActionManageParam(request, "Update Host");
-  WebSetActionManageParam(request, "Poolmaster Path");
-  WebSetActionManageParam(request, "Nextion Path");
-  WebSetActionManageParam(request, "SuperVisor Path");
+  if (WebSetActionManageParam(request, "MQTT Server"))    mustRestartMQTT = true;
+  if (WebSetActionManageParam(request, "MQTT Port"))      mustRestartMQTT = true;
+  if (WebSetActionManageParam(request, "MQTT Topic"))     mustRestartMQTT = true;
+  if (WebSetActionManageParam(request, "MQTT Username"))  mustRestartMQTT = true;
+  if (WebSetActionManageParam(request, "MQTT Password"))  mustRestartMQTT = true;
+  if (WebSetActionManageParam(request, "HOME Assistant")) mustCreateHAEntities = true;
   WebSetActionManageParam(request, "Papertrail Host");
   WebSetActionManageParam(request, "Papertrail Port"); 
   WebSetActionManageParam(request, "WaterMeter Counter");
@@ -1840,10 +1844,12 @@ void WebSetAction(AsyncWebServerRequest *request)
   WebSetActionManageParam(request, "WaterMeter D");
   WebSetActionManageParam(request, "WaterMeter GPIO");
   WebSetActionManageParam(request, "TFA_Venice");
+  WebSetActionManageParam(request, "Update Host");
+  WebSetActionManageParam(request, "Poolmaster Path");
+  WebSetActionManageParam(request, "Nextion Path");
+  WebSetActionManageParam(request, "SuperVisor Path");
   WebSetActionManageParam(request, "Command");
   preferences.end();
-
-  MqttInit();
 
   if (request->hasParam("rebootSuperVisor")) mustRebootSuperVisor = true;
   if (request->hasParam("rebootPoolMaster")) mustRebootPoolMaster = true;
@@ -1852,8 +1858,8 @@ void WebSetAction(AsyncWebServerRequest *request)
   if (request->hasParam("UpdatePoolMaster")) mustUpdatePoolMaster = true;
   if (request->hasParam("UpdateNextion"))    mustUpdateNextion    = true;
   if (request->hasParam("createHAEntities")) mustCreateHAEntities = true;
-  if (request->hasParam("cleanHAEntities"))  mustCleanHAEntities = true;
-
+  //if (request->hasParam("cleanHAEntities"))  mustCleanHAEntities = true;
+  
   request->redirect("/"); 
 }
 
@@ -1955,6 +1961,11 @@ void messagesLoop()
     if (mustCleanHAEntities) {
       cleanHAEntities();
       mustCleanHAEntities = false;
+    }
+
+    if (mustRestartMQTT) {
+      MqttInit();
+      mustRestartMQTT = false;
     }  
 }
 
