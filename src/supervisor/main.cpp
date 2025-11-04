@@ -44,6 +44,7 @@
 #include <ArduinoJson.h>
 #include <Elog.h>
 #include "SuperVisor.h"
+#include <nvs_flash.h>
 
 const long gmtOffset_sec = 3600;
 const int daylightOffset_sec = 3600;
@@ -68,7 +69,7 @@ volatile bool mustRebootNextion       = false;
 volatile bool mustCreateHAEntities    = false;
 volatile bool mustCleanHAEntities     = false;
 volatile bool mustRestartMQTT         = false;
-
+volatile bool mustUpdateWMCounter     = true;
 
 const char* defaultUpdatehost         = "myUpdateHttpServer:myport";
 const char* defaultNextionPath        = "/build/Nextion.tft";
@@ -146,7 +147,7 @@ int IRDetected = -1; // by default, no IR detector
 char sbuf[BUFFER_SIZE];
 char local_sbuf[LOG_BUFFER_SIZE];
 
-#define LogLines_size   10  // max number of log-lines in log ring buffer
+#define LogLines_size   30  // max number of log-lines in log ring buffer
 #define LogLines_maxLen 200 // max lenght of each Log-Line text
 class LogsRingBuffer
 {
@@ -213,7 +214,7 @@ void Local_Logs_Dispatch(const char *_log_message, uint8_t _targets = 7, const c
     Logger.log(WD_LOG, 1, "%s", _log_message);
   }
 
-  myLogsRingBuffer.push("SV ", _log_message);
+  myLogsRingBuffer.push("sv ", _log_message);
 }
 
 // OTA
@@ -654,11 +655,11 @@ void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties 
   for (i=0 ; i<len ; i++) Command[i] = payload[i];
   Command[i] = 0;
 
-  //snprintf(local_sbuf,sizeof(local_sbuf),"onMqttMessage: %s",Command);
-  //Local_Logs_Dispatch(local_sbuf);
+  snprintf(local_sbuf,sizeof(local_sbuf),"onMqttMessage: %s",Command);
+  Local_Logs_Dispatch(local_sbuf);
 
   deserializeJson(JSONSVCommand,Command);
-
+  preferences.begin("PMSV", false);
   JsonObject root = JSONSVCommand.as<JsonObject>();
   for (JsonPair kv : root) {
     key     = kv.key().c_str();
@@ -683,13 +684,25 @@ void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties 
       else {
         SVSettings[key] = String(setting);
         preferences.putString(key, setting);
+        if (strcmp(key, "WaterMeter L") == 0) mustUpdateWMCounter = true;
       }
     }
   }
+  preferences.end();
 }
 
 //void onMqttPublish(uint16_t packetId) {}
-//void onMqttConnect(bool sessionPresent) {}
+void onMqttConnect(bool sessionPresent)
+{
+ // Subscribe MQTT SuperVisor API
+  char topic[_LTOPIC_];
+  const char* roottopic = SVSettings["MQTT Topic"];
+  if (!roottopic) return;
+  if (strcmp(roottopic, "")==0) return;
+  sprintf(topic, "%s/SVAPI", roottopic);
+  MqttClient.subscribe(topic,2);
+}
+
 void WebHandleSVSettings(AsyncWebServerRequest *request);
 void mqttPublish()
 { 
@@ -774,10 +787,6 @@ void mqttPublish()
   }
 }
 
-void onMqttConnect(bool sessionPresent)
-{
-}
-
 void onMqttDisconnect(AsyncMqttClientDisconnectReason reason) 
 {
     if (WiFi.isConnected()) xTimerStart(MqttReconnectTimer, 0);
@@ -844,11 +853,17 @@ String PMRequest(char *question)
   if (strcmp(question, "GET_MQTT_USERNAME") == 0) return SVSettings["MQTT Username"];
   if (strcmp(question, "GET_MQTT_PASSWORD") == 0) return SVSettings["MQTT Password"];
 
-  if (strcmp(question, "GET_WATERMETER_COUNTER") == 0)  return GetAndDeleteValue("WaterMeter Counter");
-  if (strcmp(question, "GET_WATERMETER_K") == 0)        return GetAndDeleteValue("WaterMeter K");
-  if (strcmp(question, "GET_WATERMETER_D") == 0)        return GetAndDeleteValue("WaterMeter D");
-  if (strcmp(question, "GET_WATERMETER_GPIO") == 0)     return GetAndDeleteValue("WaterMeter GPIO");
-  if (strcmp(question, "GET_TFA_VENICE") == 0)          return GetAndDeleteValue("TFA_Venice");
+  if (strcmp(question, "GET_WATERMETER_COUNTER") == 0)
+     if (mustUpdateWMCounter) {
+        mustUpdateWMCounter = false;
+        return SVSettings["WaterMeter L"];
+     }
+     else return String("none");
+  if (strcmp(question, "GET_WATERMETER_K") == 0)        return SVSettings["WaterMeter K"];
+  if (strcmp(question, "GET_WATERMETER_D") == 0)        return SVSettings["WaterMeter D"];
+  if (strcmp(question, "GET_WATERMETER_GPIO") == 0)     return SVSettings["WaterMeter GPIO"];
+
+  if (strcmp(question, "GET_TFA_VENICE") == 0)          return SVSettings["TFA_Venice"];
   if (strcmp(question, "GET_COMMAND") == 0)             return GetAndDeleteValue("Command");
   return String("none");
 }
@@ -1276,7 +1291,7 @@ let homeassistantcreate = "off";
       document.getElementById("HOME Assistant").value     = homeassistanttopic;
       document.getElementById("Papertrail Host").value    = papertrail_host;
       document.getElementById("Papertrail Port").value    = papertrail_port;
-      document.getElementById("WaterMeter Counter").value = watermeterL;
+      document.getElementById("WaterMeter L").value       = watermeterL;
       document.getElementById("WaterMeter K").value       = watermeterK;
       document.getElementById("WaterMeter D").value       = watermeterD;
       document.getElementById("WaterMeter GPIO").value    = watermeterGPIO;
@@ -1323,26 +1338,14 @@ let homeassistantcreate = "off";
             nextionpath         = data["Nextion Path"];
             supervisorpath      = data["SuperVisor Path"];
             svversion           = data["Firmware"];
+            tfavenice           = data["TFA_Venice"];
+            watermeterL         = data["WaterMeter L"];
+            watermeterK         = data["WaterMeter K"];
+            watermeterD         = data["WaterMeter D"];
+            watermeterGPIO      = data["WaterMeter GPIO"];
           }
           if (title == "PoolMaster:") {
-            let wm = data["WaterMeter"];
-            let posK = -1;
-            if (wm) posK = wm.search("K=");
-            if (posK != -1) {
-              let posD = wm.search("D=");
-              let posG = wm.search("GPIO=");
-              watermeterL     = wm.substring(2, posK-1);
-              watermeterK     = wm.substring(posK+2, posD-1);
-              watermeterD     = wm.substring(posD+2, posG-1);
-              watermeterGPIO  = wm.substring(posG+5);
-            }
-            else {
-              watermeterGPIO  = 0;
-            }
             pmversion = data["Firmware"];
-            let tfa = data["TFA_Venice"];
-            if (!tfa || tfa=="none") tfavenice = "0";
-            else tfavenice = tfa.substring(5);
           }
         }
       }
@@ -1437,7 +1440,7 @@ let homeassistantcreate = "off";
     </tr>
     <tr>
       <td>Counter Liter (L):</td>
-      <td><input type="text" name="WaterMeter Counter" id="WaterMeter Counter" size=22></td>
+      <td><input type="text" name="WaterMeter L" id="WaterMeter L" size=22></td>
     </tr>
     <tr>
       <td>Coeff (K=L/pulse):</td>
@@ -1726,19 +1729,25 @@ void loadSettings()
   preferences.begin("PMSV", true);
   //hostname = preferences.getString("Hostname", "");
   preferences.getString("Hostname",hostname,15);
-  SVSettings["Hostname"]         = hostname;
-  SVSettings["MQTT Server"]      = preferences.getString("MQTT Server",     defaultmqtt_server);
-  SVSettings["MQTT Port"]        = preferences.getString("MQTT Port",       defaultmqtt_port);
-  SVSettings["MQTT Topic"]       = preferences.getString("MQTT Topic",      defaultmqtt_topic);
-  SVSettings["MQTT Username"]    = preferences.getString("MQTT Username",   defaultmqtt_username);
-  SVSettings["MQTT Password"]    = preferences.getString("MQTT Password",   defaultmqtt_password);
-  SVSettings["HOME Assistant"]   = preferences.getString("HOME Assistant",  defaulthomeassistanttopic);
-  SVSettings["Update Host"]      = preferences.getString("Update Host",     defaultUpdatehost);
-  SVSettings["Poolmaster Path"]  = preferences.getString("Poolmaster Path", defaultPoolmasterPath);
-  SVSettings["Nextion Path"]     = preferences.getString("Nextion Path",    defaultNextionPath);
-  SVSettings["SuperVisor Path"]  = preferences.getString("SuperVisor Path", defaultSuperVisorPath);
-  SVSettings["Papertrail Host"]  = preferences.getString("Papertrail Host", defaultpapertrailhost);
-  SVSettings["Papertrail Port"]  = preferences.getString("Papertrail Port", defaultpapertrailport);
+  SVSettings["Hostname"]            = hostname;
+  SVSettings["MQTT Server"]         = preferences.getString("MQTT Server",     defaultmqtt_server);
+  SVSettings["MQTT Port"]           = preferences.getString("MQTT Port",       defaultmqtt_port);
+  SVSettings["MQTT Topic"]          = preferences.getString("MQTT Topic",      defaultmqtt_topic);
+  SVSettings["MQTT Username"]       = preferences.getString("MQTT Username",   defaultmqtt_username);
+  SVSettings["MQTT Password"]       = preferences.getString("MQTT Password",   defaultmqtt_password);
+  SVSettings["HOME Assistant"]      = preferences.getString("HOME Assistant",  defaulthomeassistanttopic);
+  SVSettings["Update Host"]         = preferences.getString("Update Host",     defaultUpdatehost);
+  SVSettings["Poolmaster Path"]     = preferences.getString("Poolmaster Path", defaultPoolmasterPath);
+  SVSettings["Nextion Path"]        = preferences.getString("Nextion Path",    defaultNextionPath);
+  SVSettings["SuperVisor Path"]     = preferences.getString("SuperVisor Path", defaultSuperVisorPath);
+  SVSettings["Papertrail Host"]     = preferences.getString("Papertrail Host", defaultpapertrailhost);
+  SVSettings["Papertrail Port"]     = preferences.getString("Papertrail Port", defaultpapertrailport);
+  SVSettings["TFA_Venice"]          = preferences.getString("TFA_Venice",      "0");
+  SVSettings["WaterMeter GPIO"]     = preferences.getString("WaterMeter GPIO", "0");
+  SVSettings["WaterMeter K"]        = preferences.getString("WaterMeter K",    "1");
+  SVSettings["WaterMeter D"]        = preferences.getString("WaterMeter D",    "250");
+  SVSettings["WaterMeter L"]        = preferences.getString("WaterMeter L",    "0");
+
   preferences.end();
 }
 
@@ -1787,8 +1796,6 @@ void WebHandleSVSettings(AsyncWebServerRequest *request)
   SVSettings["HEAP free (KB)"]  = buffer;
   dtostrf(ESP.getMaxAllocHeap() / 1024.0, 3, 3, buffer);
   SVSettings["HEAP maxAlloc"]   = buffer;
-  //dtostrf(uxTaskGetStackHighWaterMark(NULL) / 1024.0, 3, 3, buffer);
-  //SVSettings["STACK free"] = buffer;
 
   if (MqttClient.connected()) strcpy(buffer, "*green");
   else strcpy(buffer, "*black");
@@ -1839,7 +1846,7 @@ void WebSetAction(AsyncWebServerRequest *request)
   if (WebSetActionManageParam(request, "HOME Assistant")) mustCreateHAEntities = true;
   WebSetActionManageParam(request, "Papertrail Host");
   WebSetActionManageParam(request, "Papertrail Port"); 
-  WebSetActionManageParam(request, "WaterMeter Counter");
+  if (WebSetActionManageParam(request, "WaterMeter L"))   mustUpdateWMCounter = true;
   WebSetActionManageParam(request, "WaterMeter K");
   WebSetActionManageParam(request, "WaterMeter D");
   WebSetActionManageParam(request, "WaterMeter GPIO");
@@ -1898,8 +1905,10 @@ void WifiManagerCheckResetLoop() {
       preferences.begin("PMSV", false);
       preferences.clear();
       preferences.end();
-      delay(300);
       wifiManager.resetSettings();
+      nvs_flash_erase(); // erase the NVS partition and...
+      nvs_flash_init(); // initialize the NVS partition.
+      delay(300);
       ESP.restart();
     }
   }
@@ -2122,7 +2131,7 @@ void setup() {
 void parseMsgFromPM(char* msg)
 {
   char *end;
-  while (end = strstr(msg, _MINIDELIM_)) {
+  while (end = strchr(msg,  _DELIMITER_[0])) {
     *end = 0;
     char *key = msg;
     char *val = strstr(msg, "=");
@@ -2176,7 +2185,7 @@ void incomingSerialData()
     if (readUntil(Serial2, sbuf, "\n")) {
       // `buf` contains the delimiter, it can now be used for parsing.
 
-      if (char* msg = strstr(sbuf, _MINIDELIM_)) {  // is it a private message from PoolMaster ?
+      if (char* msg = strchr(sbuf,  _DELIMITER_[0])) {  // is it a private message from PoolMaster ?
         parseMsgFromPM(msg+1);
       }
       else {
@@ -2191,7 +2200,7 @@ void incomingSerialData()
         // Cleanup buffer and send to the web
         for (int src = 0, dst = 0; src < sizeof(sbuf); src++)
         if (sbuf[src] != '\r') sbuf[dst++] = sbuf[src];
-        myLogsRingBuffer.push("PM ", sbuf);
+        myLogsRingBuffer.push("pm ", sbuf);
 
         // Cloud Logger PaperTrail
         const char* papertrailhost=SVSettings["Papertrail Host"];

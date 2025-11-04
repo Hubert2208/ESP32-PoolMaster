@@ -186,7 +186,6 @@ void SuperVisor_LoadSettings(void *pvParameters)
   }
   SuperVisor_Message("GET_MQTT_PORT", buffer);
   if ((strcmp(buffer, "none") !=0) &&
-      (strcmp(buffer, "") !=0)     &&
       (strcmp(buffer, "0") !=0)) {
     char* out;
     uint32_t mqttport = strtol(buffer, &out, 10);
@@ -196,8 +195,7 @@ void SuperVisor_LoadSettings(void *pvParameters)
     }
   }
   SuperVisor_Message("GET_MQTT_SERVER", buffer);
-  if ((strcmp(buffer, "none") !=0) &&
-      (strcmp(buffer, "") !=0)) {
+  if (strcmp(buffer, "none") !=0) {
     IPAddress servIP;
     servIP.fromString(buffer);
     if (servIP != PMConfig.get<uint32_t>(MQTT_IP)) {

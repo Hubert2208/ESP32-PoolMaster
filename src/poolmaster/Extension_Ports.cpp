@@ -32,7 +32,7 @@
 #define _GPIO_WATERMETER_PULSE_  0 // disable by default, suggest GPIO 15 - Count WaterMeter pulse from external reader.
 #define _I2C_                    0
 #define _OTHER_                 -1
-#define LOADSETTINGSFREQUENCY   1500 // check every xxx ms if SuperVisor has new settings (wifi, mqtt, watermeter, etc)
+#define LOADSETTINGSFREQUENCY   2000 // check every xxx ms if SuperVisor has new settings (wifi, mqtt, watermeter, etc)
 
 struct ListExtensions knownI2C[] = {
     {"SUPERVISOR",  0, SUPERVISOR_I2C_Address},  // 0x07
@@ -50,19 +50,19 @@ struct ListExtensions knownI2C[] = {
 // *******************************************
 struct ListExtensions myListExtensions[] = {
     // NAME (max 15chars), INIT_FUNCTION,  PORT, SETTINGS STACK SIZE, TASK STACK SIZE
-    {"SuperVisor",  SuperVisor_Init,        _I2C_   , 2048, 4096}, // Talk to SuperVisor via I2C
-    {"SHT40",       SHT40_0x44_Init,        _I2C_   , 0, 2048},
-    {"BMP280",      BMP280_0x76_Init,       _I2C_   , 0, 2048},
-    {"BME680",      BME680_0x77_Init,       _I2C_   , 0, 2048},
-    //{"WaterMeter",  WaterMeterPulse_Init,   _GPIO_WATERMETER_PULSE_, 2048, 2048 },
-//    {"TFA_Venice",  TFAVenice_RF433T_Init,  _GPIO_TFA_RF433T_ , 2048, 2048 },},
+    {"SuperVisor",  SuperVisor_Init,        _I2C_   , 2250, 4096}, // Talk to SuperVisor via I2C
+    {"SHT40",       SHT40_0x44_Init,        _I2C_   , 0, 2225},
+    {"BMP280",      BMP280_0x76_Init,       _I2C_   , 0, 2250},
+    {"BME680",      BME680_0x77_Init,       _I2C_   , 0, 2250},
+    {"WaterMeter",  WaterMeterPulse_Init,   _GPIO_WATERMETER_PULSE_, 2250, 1800 },
+    {"TFA_Venice",  TFAVenice_RF433T_Init,  _GPIO_TFA_RF433T_ ,      2250, 2048 },
 
    // Futur extensions
 //    {"MiLight",        MiLight_Init,           _I2C_ },
 //    {"PoolCover",      PoolCover_Init,         _OTHER_ },
 //    {"HeatPump",   PoolHeatPump_Init,      _OTHER_ },
 
-    //  Monitor free stack of all PoolMaster Loops
+    //  Monitor free stack (high watermark) of all PoolMaster Loops
     {"loopTask",        noInit,           0       , 0   , 0}, // the main loop
     {"AnalogPoll",      noInit,           0       , 0   , 0},
     {"ProcessCommand",  noInit,           0       , 0   , 0},
@@ -136,8 +136,10 @@ void ExtensionsLoop(void *pvParameters)
 {
     ExtensionStruct *TheExtension = (ExtensionStruct *)pvParameters;
 
-    if (!TheExtension->detected) return;
-    if (!TheExtension->Task)     return;
+    if (!TheExtension->detected)      return;
+    if (!TheExtension->Task)          return;
+    if (TheExtension->frequency == 0) return;
+    if (TheExtension->frequency < 0)  return;
 
     vTaskDelay(1500 / portTICK_PERIOD_MS); // Scheduling offset
     while (!startTasks) delay(200);
@@ -170,7 +172,7 @@ void ExtensionsInit()
     Debug.print(DBG_INFO, "...done");
     if (sizeof(myListExtensions[0]))
         _NbExtensions = sizeof(myListExtensions)  / sizeof(myListExtensions[0]);
-    Debug.print(DBG_INFO, "[Extensions Init] with %d extensions", _NbExtensions);
+    Debug.print(DBG_INFO, "[Extensions Init] with %d entries", _NbExtensions);
 
     if (_NbExtensions) myExtensions = (ExtensionStruct*) malloc(_NbExtensions * sizeof(ExtensionStruct));
 

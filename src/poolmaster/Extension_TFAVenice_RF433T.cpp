@@ -65,11 +65,6 @@ modulation  = OOK_PULSE_MANCHESTER_ZEROBIT
 
 ExtensionStruct myTFAVenice_RF433T = {0};
 static int      tfaGPIO = 0; // disabled by default, suggest GPIO 5
-ConfigManager   TFAConfig;
-
-enum TFAParamID {
-    TFA_GPIO,
-};
 
 extern void SuperVisor_Message(const char *, char*);
 extern void PublishTopic(const char*, JsonDocument&);
@@ -91,31 +86,6 @@ void Init_RF433t()
     ESP_ERROR_CHECK(rmt_config(&config));
     ESP_ERROR_CHECK(rmt_driver_install(config.channel, 0, 0));
     driverinstalled = true;
-  /*
-    -#define RMT_TX_CHANNEL  (RMT_CHANNEL_0)
-    //#define RMT_RX_CHANNEL  (RMT_CHANNEL_1)
-    -//#define RTM_TX_GPIO_NUM (GPIO)
-    -//#define RTM_RX_GPIO_NUM (36)
-    -#define RTM_BLOCK_NUM   (1)
-    -#define RMT_CLK_DIV     (80) !< RMT counter clock divider 
-    -#define RMT_1US_TICKS   (80000000 / RMT_CLK_DIV / 1000000)
-    -#define RMT_1MS_TICKS   (RMT_1US_TICKS * 1000)
-    -#define RMT_CODE_H      {670, 1, 320, 0}
-    -#define RMT_CODE_L      {348, 1, 642, 0}
-    -#define RMT_START_CODE0 {4868, 1, 2469, 0}
-    -#define RMT_START_CODE1 {1647, 1, 315, 0}
-    // Configure the RMT peripheral
-    rmt_config_t config;
-    config.gpio_num = tfaGPIO;
-    config.rmt_mode = RMT_MODE_CARRIER;
-    config.channel = RMT_CHANNEL;
-    config.clk_div = 80;
-    // Initialize the RMT peripheral
-    rmt_config(&config);
-    rmt_driver_install(config.channel, 0, 0);
-    // Start the carrier signal
-    rmt_carrier_mode_start(RMT_CHANNEL, 1, true, &carrier_config);
-*/
 }
 
 void convertToRMT_ManchesterOOK(uint8_t* buff, int sizebits, rmt_item32_t *rmtitem, int clock)
@@ -257,7 +227,8 @@ void TFAVenice_RF433T_Task(void *pvParameters)
 void TFAVenice_RF433T_Values(char* buffer)
 {
     if (tfaGPIO > 0)
-         sprintf(buffer, "GPIO=%d", tfaGPIO);
+        //sprintf(buffer, "GPIO=%d", tfaGPIO);
+        sprintf(buffer, "433Mhz");
     else sprintf(buffer, "none");
 }
 
@@ -275,33 +246,21 @@ void TFAVenicePubMQTT()
 
 void TFAVenice_RF433T_LoadSettings(void *pvParameters)
 {
-    static bool initvalues = true;
-    if (initvalues) {
-        initvalues = false;
-        tfaGPIO = TFAConfig.get<uint8_t>(TFA_GPIO);
-        Init_RF433t();
-        return;
-    }
+    int newgpio = 0;
     char buffer[I2C_MAXMESSAGE+5] = {0};
     SuperVisor_Message("GET_TFA_VENICE", buffer);
-
-    if (strcmp(buffer, "none")!=0) {
-        int newgpio=tfaGPIO;
-        sscanf(buffer, "%d", &newgpio);
-        if (newgpio != tfaGPIO) {
-            tfaGPIO = newgpio;
-            Init_RF433t();
-            TFAConfig.put<uint8_t>(TFA_GPIO, tfaGPIO);
-            TFAVenicePubMQTT();
-        }
+    if (strcmp(buffer, "none")==0) return;
+    if (strcmp(buffer, "")==0) newgpio = 0;
+    else sscanf(buffer, "%d", &newgpio);
+    if (tfaGPIO != newgpio) {
+        tfaGPIO = newgpio;
+        Init_RF433t();
+        TFAVenicePubMQTT();
     }
 }
 
 ExtensionStruct TFAVenice_RF433T_Init(char* name, int defaultIO)
 {
-    TFAConfig.SetNamespace("TFAVenice");
-    TFAConfig.initParam(TFA_GPIO, "TFA_GPIO", (uint8_t)defaultIO);
-
     // Init structure
     myTFAVenice_RF433T.name         = name;
     myTFAVenice_RF433T.detected     = true;

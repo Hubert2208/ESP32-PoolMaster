@@ -28,6 +28,7 @@ extern char barBuf[64];
 extern char local_sbuf[LOG_BUFFER_SIZE];
 extern void Local_Logs_Dispatch(const char *_log_message, uint8_t _targets = 7, const char* _telnet_separator = "\r\n");
 extern int IRDetected;
+extern Preferences preferences;
 
 // TFT SPI 320X240
 // ***************
@@ -123,7 +124,7 @@ void TFT_Measures(int posx, int posy, bool refreshTFT)
     {"pH:",      -100, -1},
     {"Orp:",     -100, -1},
     {"Water:",   -100, -1},
-    {"WM (l):",  -100, -1},
+    {"WM:",      -100, -1},
     {"Air Pr:",  -100, -1},
   };
 
@@ -257,16 +258,15 @@ void TFT_Measures(int posx, int posy, bool refreshTFT)
   index = 6;  // Water Meter Counter in liter
   value = PMInfo["WaterMeter"];
   if (value && (strcmp(value, "none")!=0)) {
-    strncpy(text, value+2, sizeof(text));
-    text[sizeof(text)-1] = 0;
-    p=strchr(text, 'K');
-    if (p) {
-      *p=0;
-      dvalue = atof(text);
-    }
-    else dvalue=0;
+    dvalue  = PMInfo["WaterMeter"].as<double>();
     if (refreshTFT) data[index].value = -100;
     if (data[index].value != dvalue) {
+      // update SV WaterMeterValue got from PM
+      SVSettings["WaterMeter L"] = dvalue;
+      preferences.begin("PMSV", false);
+      preferences.putString("WaterMeter L", value);
+      preferences.end();
+
       data[index].value = dvalue;
       sprintf(text, "%.0f", dvalue);
       if (data[index].line == -1) data[index].line = line++;

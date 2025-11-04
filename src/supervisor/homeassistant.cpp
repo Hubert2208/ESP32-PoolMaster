@@ -131,10 +131,6 @@ void createHAEntities()
   char entitytype[20];
   char JScommon[400];
 
-  // Subscribe MQTT SuperVisor API
-  sprintf(topic, "%s/SVAPI", roottopic);
-  MqttClient.subscribe(topic,2);
-
   // Create Home Assistant Entities for automatic discovery
   sprintf(JScommon, "\"availability\": { \
     \"topic\": \"PoolMaster/Status\", \
@@ -1528,7 +1524,7 @@ void createHAEntities()
  {char name[] = "WaterMeter L";
   sprintf(topic, "%s/WaterMeter", roottopic);
   char JSEntity[] = " \
-  \"command_template\": \"{ 'WaterMeter Counter': '{{ value }}' }\", \
+  \"command_template\": \"{ 'WaterMeter L': '{{ value }}' }\", \
   \"min\": \"0\", \
   \"max\": \"999999999\", \
   \"mode\": \"box\", \

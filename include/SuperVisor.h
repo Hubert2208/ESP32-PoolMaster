@@ -21,7 +21,6 @@
 #define TFT_PowerSaving 45  // TFT will poweroff after xx cycles
 
 const char _DELIMITER_[] = {0xEA,0xEA,0xEA}; // ΩΩΩ
-const char _MINIDELIM_[2] = {0xEA}; // Ω
 
 typedef void (*functionvoid) (void*);
 typedef void (*functionchar) (char*);
