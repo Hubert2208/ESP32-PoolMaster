@@ -9,122 +9,106 @@
 #if defined(_EXTENSIONS_)
 
 #include "Extension_WaterMeter_Pulse.h"
-#include <driver/pcnt.h>
+extern void SuperVisor_Message(const char *, char*);
 
 ExtensionStruct myWaterMeterPulse = {0};
+static double   myWaterMeterCounter = 0;
+static double   myWMLiterPerPulse   = 1.0;  // K=1 liter/pulse
+static uint32_t myWMDebounce        = 250;  // Debounce time in ms
+static int      myWMGPIO            = 0;    // disabled by default, suggest GPIO 15
 
-static int      myWMPulsePerLiter   = 1;       // 1 pulse each liter
-static int16_t  myWaterMeterCounter = 1;
-
-void ExtensionsPublishTopic(char*, JsonDocument&);
-int ExtensionsReadRetainedTopic(char*, JsonDocument&);
-
-void WaterMeterPulseSaveMeasures(void *pvParameters)
+extern void PublishTopic(const char*, JsonDocument&);
+void WaterMeterPulsePubMQTT(void)
 {
-    if (!myWaterMeterPulse.detected) return;
+    static double oldvalues = -1;
+    double n = myWaterMeterCounter+myWMLiterPerPulse+myWMDebounce+myWMGPIO;
+    if (n != oldvalues) oldvalues=n;
+    else return; // no change to publish
 
-    //send a JSON to MQTT broker. /!\ Split JSON if longer than 100 bytes
     DynamicJsonDocument root(1024);
-    
-    if (myWaterMeterCounter)    root["Counter"]       = myWaterMeterCounter;
-    if (myWMPulsePerLiter)      root["PulsePerLiter"] = myWMPulsePerLiter;
+    root["GPIO"] = myWMGPIO;
+    root["K"]    = myWMLiterPerPulse;
+    root["D"]    = myWMDebounce;
+    root["L"]    = (int)myWaterMeterCounter;
 
-    ExtensionsPublishTopic(myWaterMeterPulse.MQTTTopicMeasures, root);
+    char topic[50];
+    const char *roottopic = PMConfig.get<const char*>(MQTT_TOPIC);
+    if (strcmp(roottopic, "") == 0) return;
+    if (strcmp(roottopic, "none") == 0) return;
+    sprintf(topic, "%s/%s", roottopic, myWaterMeterPulse.name);
+    PublishTopic(topic, root);
 }
 
-void WaterMeterPulseLoadMeasures(void *pvParameters)
+void WaterMeterPulseValues(char* buffer)
 {
-    if (!myWaterMeterPulse.detected) return;
+    if (myWMGPIO>0) sprintf(buffer, "%.0f", myWaterMeterCounter);
+    else            strcpy(buffer, "none");
+}
 
-    //send a JSON to MQTT broker. /!\ Split JSON if longer than 100 bytes
-    DynamicJsonDocument root(1024);
-    if (!ExtensionsReadRetainedTopic(myWaterMeterPulse.MQTTTopicMeasures, root)) 
-        return;
-
-    int value = root["Counter"];
-    if (value) myWaterMeterCounter = value;
-    value = root["PulsePerLiter"];
-    if (value) myWMPulsePerLiter   = value;
+void WaterMeterPulseLoadSettings(void *pvParameters)
+{
+    int newgpio = 0;
+ 
+    // Get Watermeter settings from SuperVisor, if any
+    char buffer[I2C_MAXMESSAGE+5] = {0};
+    SuperVisor_Message("GET_WATERMETER_COUNTER", buffer);
+    if ((strcmp(buffer, "none")!=0) &&
+        (strcmp(buffer, "")!=0)) {
+        sscanf(buffer, "%lf", &myWaterMeterCounter);
+    }
+    SuperVisor_Message("GET_WATERMETER_K", buffer);
+    if ((strcmp(buffer, "none")!=0) &&
+        (strcmp(buffer, "")!=0)) {
+        sscanf(buffer, "%lf", &myWMLiterPerPulse);
+    }
+    SuperVisor_Message("GET_WATERMETER_D", buffer);
+    if ((strcmp(buffer, "none")!=0) &&
+        (strcmp(buffer, "")!=0)) {
+        sscanf(buffer, "%d", &myWMDebounce);
+    }
+    SuperVisor_Message("GET_WATERMETER_GPIO", buffer);
+    if (strcmp(buffer, "none")!=0) {
+        if (strcmp(buffer, "")==0) newgpio = 0;
+        else sscanf(buffer, "%d", &newgpio);
+        if (myWMGPIO != newgpio) myWMGPIO = newgpio;
+    }
+    WaterMeterPulsePubMQTT();
 }
 
 void WaterMeterPulseTask(void *pvParameters)
 {
-   // Debug.print(DBG_INFO,"[WaterMeterPulseTask] Start");
-    if (!myWaterMeterPulse.detected) return;
-    int16_t pulseCount      = 0;
-    int16_t InitPulseCount  = 0;
+    if (myWMGPIO<1) return;
 
-   // Debug.print(DBG_DEBUG,"[WaterMeterPulseTask] Load measures");
-    WaterMeterPulseLoadMeasures(pvParameters);  // read mqtt values, might be externally updated
+    // Debounce is managed by the loop
+    static uint8_t LastReading = HIGH;
+    static bool meterblocked = false;   // meter can stop when GPIO is at LOW level
 
-    // loop till counter does not change anymore
-    pcnt_get_counter_value(PCNT_UNIT_0, &pulseCount);
- //   Debug.print(DBG_DEBUG,"[WaterMeterPulseTask] pcnt_get_counter_value %d %d",pulseCount, InitPulseCount );
- 
- //   if (!pulseCount) return;
+    pinMode(myWMGPIO, INPUT_PULLUP);
+    uint8_t Reading = digitalRead(myWMGPIO);
 
-    while (pulseCount != InitPulseCount) {
-        InitPulseCount = pulseCount;
-        delay(2000);
-        pcnt_get_counter_value(PCNT_UNIT_0, &pulseCount);
-   //     Debug.print(DBG_DEBUG,"[WaterMeterPulseTask in the loop] pcnt_get_counter_value %d",pulseCount );
+    if (Reading != LastReading) meterblocked = false; // state has changed
+    LastReading = Reading;
+
+    if ((Reading == LOW) && (!meterblocked)) {
+        meterblocked = true;
+        myWaterMeterCounter += myWMLiterPerPulse;
+        WaterMeterPulsePubMQTT();
     }
-  
-    // save Counter to MQTT and ready for next loop
-    myWaterMeterCounter += pulseCount * myWMPulsePerLiter;
-    WaterMeterPulseSaveMeasures(pvParameters);
-   // Debug.print(DBG_DEBUG,"[WaterMeterPulseTask] counter=%d", myWaterMeterCounter);
-    
-    pcnt_counter_pause(PCNT_UNIT_0);
-    pcnt_counter_clear(PCNT_UNIT_0);
-    pcnt_counter_resume(PCNT_UNIT_0);
 }
 
-ExtensionStruct WaterMeterPulse_Init(const char *name, int IO)
+ExtensionStruct WaterMeterPulse_Init(char *name, int defaultIO)
 {
-    // PCNT counter
-#define PCNT_H_LIM_VAL      1000        //  review these values, based on your watermerter  
-#define PCNT_THRESH1_VAL    500         //
-#define PCNT_THRESH0_VAL   -500         //
-
-    // *************verif pullup ?
-    // *************verif sens input 
-    pcnt_config_t pcnt_config = {};
-    pcnt_config.pulse_gpio_num = IO;
-    pcnt_config.ctrl_gpio_num = PCNT_PIN_NOT_USED;
-    pcnt_config.channel = PCNT_CHANNEL_0;
-    pcnt_config.unit = PCNT_UNIT_0;
-    pcnt_config.pos_mode = PCNT_COUNT_INC;
-    pcnt_config.neg_mode = PCNT_COUNT_DIS;
-    pcnt_config.lctrl_mode = PCNT_MODE_KEEP;
-    pcnt_config.hctrl_mode = PCNT_MODE_KEEP;
-    pcnt_config.counter_h_lim = PCNT_H_LIM_VAL;
-    pcnt_unit_config(&pcnt_config);
-
-    // *************verif filter
-    pcnt_set_filter_value(PCNT_UNIT_0, 100);
-    pcnt_filter_enable(PCNT_UNIT_0);
-    pcnt_set_event_value(PCNT_UNIT_0, PCNT_EVT_THRES_1, PCNT_THRESH1_VAL);
-    pcnt_event_enable(PCNT_UNIT_0, PCNT_EVT_THRES_1);
-    /* Enable events on zero, maximum and minimum limit values */
-    pcnt_event_enable(PCNT_UNIT_0, PCNT_EVT_ZERO);
-    pcnt_event_enable(PCNT_UNIT_0, PCNT_EVT_H_LIM);
-    pcnt_counter_pause(PCNT_UNIT_0);
-    pcnt_counter_clear(PCNT_UNIT_0);
-    pcnt_counter_resume(PCNT_UNIT_0);
-  
     // Init structure
     myWaterMeterPulse.name              = name;
     myWaterMeterPulse.Task              = WaterMeterPulseTask;
     myWaterMeterPulse.detected          = true;
-    myWaterMeterPulse.frequency         = 800;     // check every 800 ms if counter changes
-    myWaterMeterPulse.LoadSettings      = 0;
+    myWaterMeterPulse.frequency         = myWMDebounce;     // check every xxx ms if counter changes (~ debounce time)
+    myWaterMeterPulse.LoadSettings      = WaterMeterPulseLoadSettings;
     myWaterMeterPulse.SaveSettings      = 0;
-    myWaterMeterPulse.LoadMeasures      = WaterMeterPulseLoadMeasures;
-    myWaterMeterPulse.SaveMeasures      = WaterMeterPulseSaveMeasures;
+    myWaterMeterPulse.LoadMeasures      = 0;
+    myWaterMeterPulse.SaveMeasures      = 0;
+    myWaterMeterPulse.Values            = WaterMeterPulseValues;
     myWaterMeterPulse.HistoryStats      = 0;
-    myWaterMeterPulse.MQTTTopicSettings = 0;
-    myWaterMeterPulse.MQTTTopicMeasures = ExtensionsCreateMQTTTopic(myWaterMeterPulse.name, "");
 
     return myWaterMeterPulse;
 }
