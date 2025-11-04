@@ -18,8 +18,13 @@ NB: all timings are in milliseconds
 #define PUMP_VERSION "1.0.2"
 
 //Constants used in some of the functions below
+#ifdef REVERSE_TANK_LEVEL
+#define TANK_FULL  1
+#define TANK_EMPTY 0
+#else
 #define TANK_FULL  0
 #define TANK_EMPTY 1
+#endif
 #define NO_LEVEL 170          // Pump with tank but without level switch
 #define NO_TANK 255           // Pump without tank
 #define NO_INTERLOCK 255  
