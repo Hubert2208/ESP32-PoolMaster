@@ -17,6 +17,11 @@
 
 #include "KC868A8_IO.h"
 
+// Undefine the macros here so we can define the actual member functions
+#undef digitalWrite
+#undef digitalRead
+#undef pinMode
+
 // Global instance
 KC868A8_IO KC868;
 
@@ -45,7 +50,7 @@ void KC868A8_IO::begin() {
 }
 
 void KC868A8_IO::readInputs() {
-    Wire.requestFrom(KC868_INPUT_I2C_ADDR, (uint8_t)1);
+    Wire.requestFrom((uint16_t)KC868_INPUT_I2C_ADDR, (uint8_t)1);
     if (Wire.available()) {
         uint8_t raw = Wire.read();
         // Optocoupled inputs are active LOW

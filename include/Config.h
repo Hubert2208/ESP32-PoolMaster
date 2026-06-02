@@ -9,8 +9,8 @@
 // - ESP32_DEVKITV1: Original board (direct GPIO, no I2C relays)
 // - KC868_A8: Kincony KC868-A8 (PCF8574 I2C relays + inputs)
 // ============================================================
-#define KC868_A8
-// #define ESP32_DEVKITV1
+// Hardware is selected via platformio.ini build_flags (-D KC868_A8 or -D ESP32_DEVKITV1)
+// Do NOT define here.
 
 #ifdef KC868_A8
   #include "KC868A8_Pins.h"  // Virtual pin definitions for KC868-A8
