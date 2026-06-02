@@ -286,12 +286,14 @@ void StatusLights(void *pvParameters)
         status |= (PhPump.UpTimeError & 1) << 6;
         status |= (ChlPump.UpTimeError & 1) << 7;  
     }
+#if BUZZER != 255
     if(PMConfig.get<bool>(BUZZERON))
     {
       (status & 0xF0) ? digitalWrite(BUZZER,HIGH) : digitalWrite(BUZZER,LOW) ;
     }else{
       digitalWrite(BUZZER,LOW);
     }
+#endif
     if(WiFi.status() == WL_CONNECTED) status |= 0x01;
         else status &= 0xFE;
     Debug.print(DBG_VERBOSE,"Status LED : 0x%02x",status);

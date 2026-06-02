@@ -1,3 +1,5 @@
+#include "Config.h"
+#ifdef TFT_CONNECTED
 /*
   NEXTION TFT related code, based on EasyNextion library by Seithan / Athanasios Seitanis (https://github.com/Seithan/EasyNextionLibrary)
   The trigger(s) functions at the end are called by the Nextion library on event (buttons, page change).
@@ -170,3 +172,12 @@ void syncRTC2ESP() {
     (int)myNex.readNumber(F("rtc0"))
   );
 }
+
+#else // !TFT_CONNECTED
+// Stubs when no TFT display is connected
+#include <Arduino.h>
+void ResetTFT() {}
+void UpdateTFT(void*) {}
+void syncESP2RTC(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t) {}
+void syncRTC2ESP() {}
+#endif // TFT_CONNECTED

@@ -1,3 +1,21 @@
+// ============================================================
+// ESP32-PoolMaster Configuration
+// ============================================================
+
+// ============================================================
+// HARDWARE SELECTION
+// ============================================================
+// Uncomment ONE of the following to select your hardware:
+// - ESP32_DEVKITV1: Original board (direct GPIO, no I2C relays)
+// - KC868_A8: Kincony KC868-A8 (PCF8574 I2C relays + inputs)
+// ============================================================
+#define KC868_A8
+// #define ESP32_DEVKITV1
+
+#ifdef KC868_A8
+  #include "KC868A8_Pins.h"  // Virtual pin definitions for KC868-A8
+#endif
+
 // Firmware revisions
 #define FIRMW "ESP-4.62"
 #define TFT_FIRMW "TFT-4.0" // For compatibility
@@ -13,6 +31,36 @@
 //Version of config stored in EEPROM
 //Random value. Change this value (to any other value) to revert the config to default values
 #define CONFIG_VERSION 70
+
+// ============================================================
+// TFT DISPLAY CONFIGURATION
+// ============================================================
+// Uncomment to enable TFT/Nextion display support
+// When not defined, all Nextion code is compiled out
+// ============================================================
+// #define TFT_CONNECTED
+
+// ============================================================
+// SENSOR SIMULATION CONFIGURATION
+// ============================================================
+// Set to 1 to enable simulation for individual sensors.
+// When enabled, the simulated value replaces the real sensor value.
+// When disabled, the real sensor value is used.
+// ============================================================
+#define SIMU_CHL_LEVEL      0       // Chlorine tank level simulation
+#define SIMU_PH_LEVEL       0       // Acid tank level simulation
+#define SIMU_POOL_LEVEL     0       // Pool water level simulation
+#define SIMU_PH             0       // pH sensor simulation
+#define SIMU_ORP            0       // ORP sensor simulation
+#define SIMU_PSI            0       // Pressure sensor simulation
+
+// Simulation default values (used when simulation is enabled)
+#define SIMU_PH_VALUE       7.2     // Default simulated pH
+#define SIMU_ORP_VALUE      720.0   // Default simulated ORP (mV)
+#define SIMU_PSI_VALUE      0.35    // Default simulated pressure (bar)
+#define SIMU_CHL_LEVEL_VALUE  1     // Default: HIGH (tank not empty)
+#define SIMU_PH_LEVEL_VALUE   1     // Default: HIGH (tank not empty)
+#define SIMU_POOL_LEVEL_VALUE 1     // Default: HIGH (pool level OK)
 
 // If you need to force network parameters (configuration with no screen)
 #define FORCE_NETWORK_PARAMS
@@ -45,42 +93,73 @@
 #define PhPID_DIRECTION REVERSE
 #define OrpPID_DIRECTION DIRECT
 
-// Default ports (can be changed at runtime)
-#define FILTRATION      32
-#define ROBOT     	    33
-#define PH_PUMP         25
-#define CHL_PUMP        26
-#define PROJ            27  // Projecteur
-#define SPARE           4
-#define SWG_PUMP        13
-#define FILL_PUMP       23
+// ============================================================
+// PIN DEFINITIONS (Hardware-dependent)
+// ============================================================
 
-#define ALL_PINS        "4|13|23|25|26|27|32|33" // List of all usable PINs on the ESP32 (to be sent to Nextion)
+#ifdef KC868_A8
+  // KC868-A8: Relays and inputs via PCF8574 I2C expanders
+  // Virtual pins 100-107 (relays), 110-117 (inputs)
+  #define FILTRATION      VPIN_FILTRATION     // 100
+  #define ROBOT           VPIN_ROBOT          // 101
+  #define PH_PUMP         VPIN_PH_PUMP        // 102
+  #define CHL_PUMP        VPIN_CHL_PUMP       // 103
+  #define PROJ            VPIN_PROJ           // 104
+  #define SPARE           VPIN_SPARE          // 105
+  #define SWG_PUMP        VPIN_SWG_PUMP       // 106
+  #define FILL_PUMP       VPIN_FILL_PUMP      // 107
+  
+  #define CHL_LEVEL       VPIN_CHL_LEVEL      // 110
+  #define PH_LEVEL        VPIN_PH_LEVEL       // 111
+  #define POOL_LEVEL      VPIN_POOL_LEVEL     // 112
+  
+  #define ONE_WIRE_BUS_A  KC868_ONEWIRE_AIR   // GPIO14
+  #define ONE_WIRE_BUS_W  KC868_ONEWIRE_WATER // GPIO13
+  
+  #define I2C_SDA         KC868_I2C_SDA       // GPIO4
+  #define I2C_SCL         KC868_I2C_SCL       // GPIO5
+  #define PCF8574ADDRESS  0x20                // Status LEDs (not used on KC868-A8)
+  
+  #define BUZZER          KC868_BUZZER        // GPIO27
+  
+  #define ALL_PINS        "100|101|102|103|104|105|106|107"
+  
+  // ADS1115 not used on KC868-A8 (pH/ORP/PSI via simulation or external)
+  #undef EXT_ADS1115
+  #define INT_ADS1115_ADDR ADS1115ADDRESS
+  #undef EXT_ADS1115_ADDR
 
-//Digital input pins connected to Acid and Chl tank level reed switches
-#define CHL_LEVEL       39   // If chlorine tank empty switch used (contact open if low level)
-#define PH_LEVEL        36   // If acid tank empty switch used (contact open if low level)
-#define POOL_LEVEL      34   //	If pool level switch used (contact open if low level)
-
-//One wire bus for the air/water temperature measurement
-#define ONE_WIRE_BUS_A  18
-#define ONE_WIRE_BUS_W  19
-
-//I2C bus for analog measurement with ADS1115 of pH, ORP and water pressure 
-//and status LED through PCF8574A 
-#define I2C_SDA			21
-#define I2C_SCL			22
-#define PCF8574ADDRESS  0x20 // 0x20 for PCF8574(N) or 0x38 for PCF8574A(N)
-
-//Type of pH and Orp sensors acquisition :
-//INT_ADS1115 : single ended signal with internal ADS1115 ADC (default)
-//EXT_ADS1115 : differential signal with external ADS1115 ADC (Loulou74 board)
-#define EXT_ADS1115
-#define INT_ADS1115_ADDR ADS1115ADDRESS
-#define EXT_ADS1115_ADDR ADS1115ADDRESS+1 // or +2 or +3 depending on board setup
-
-// Buzzer
-#define BUZZER           2
+#else
+  // Original ESP32 DevKit: Direct GPIO connections
+  #define FILTRATION      32
+  #define ROBOT           33
+  #define PH_PUMP         25
+  #define CHL_PUMP        26
+  #define PROJ            27  // Projecteur
+  #define SPARE           4
+  #define SWG_PUMP        13
+  #define FILL_PUMP       23
+  
+  #define CHL_LEVEL       39   // Chlorine tank empty switch
+  #define PH_LEVEL        36   // Acid tank empty switch
+  #define POOL_LEVEL      34   // Pool level switch
+  
+  #define ONE_WIRE_BUS_A  18
+  #define ONE_WIRE_BUS_W  19
+  
+  #define I2C_SDA         21
+  #define I2C_SCL         22
+  #define PCF8574ADDRESS  0x20 // 0x20 for PCF8574(N) or 0x38 for PCF8574A(N)
+  
+  #define BUZZER          2
+  
+  #define ALL_PINS        "4|13|23|25|26|27|32|33"
+  
+  // Type of pH and Orp sensors acquisition
+  #define EXT_ADS1115
+  #define INT_ADS1115_ADDR ADS1115ADDRESS
+  #define EXT_ADS1115_ADDR ADS1115ADDRESS+1
+#endif
 
 // Task TimeOut before reboot
 #define WDT_TIMEOUT     10

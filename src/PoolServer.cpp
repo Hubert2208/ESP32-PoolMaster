@@ -64,6 +64,7 @@ void ProcessCommand(void *pvParameters)
           }
         }
         // Bip the buzzer to show good execution of the command
+#if BUZZER != 255
         if(PMConfig.get<bool>(BUZZERON))
         {
           // Sound configuration applied
@@ -75,6 +76,7 @@ void ProcessCommand(void *pvParameters)
           delay(30);
           digitalWrite(BUZZER,LOW);
         }
+#endif
         // Publish Update on the MQTT broker the status of our variables
         PublishMeasures();
       }

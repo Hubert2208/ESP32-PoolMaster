@@ -7,6 +7,11 @@
 #include "PoolMaster.h"
 #include "State_Machine.h"         // State machine for PoolMaster
 
+#ifdef KC868_A8
+  #include "KC868A8_IO.h"
+  #include "SensorSimulation.h"
+#endif
+
 #ifdef SIMU
 bool init_simu = true;
 double pHLastValue = 7.;
@@ -285,10 +290,21 @@ void setup()
 
   PMConfig.printAllParams(); // Print all parameters to Serial for debug
 
+#ifdef KC868_A8
+  // Initialize KC868-A8 I/O layer (PCF8574 expanders)
+  KC868.begin();
+  
+  // Initialize sensor simulation system
+  SimSensor.begin();
+#endif
+
   //Define pins directions
+#if BUZZER != 255
   pinMode(BUZZER, OUTPUT);
+#endif
 
   // Warning: pins used here have no pull-ups, provide external ones
+  // On KC868-A8, these are virtual pins via PCF8574 - pinMode handled by I/O layer
   pinMode(CHL_LEVEL, INPUT);
   pinMode(PH_LEVEL, INPUT);
 

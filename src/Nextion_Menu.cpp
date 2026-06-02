@@ -1,3 +1,5 @@
+#include "Config.h"
+#ifdef TFT_CONNECTED
 /*
   NEXTION MENU TFT related code, based on EasyNextion library by Seithan / Athanasios Seitanis.
   Used to define and display the settings menu
@@ -478,4 +480,9 @@ void NexMenu_Loop(EasyNex& _myNex)
         break;
     }   // End of switch(_myNex.currentPageId)
 }   // End of NexMenu_Loop function
+
+#else // !TFT_CONNECTED
+// Stubs when no TFT display is connected
+#include <Arduino.h>
+#endif // TFT_CONNECTED
 

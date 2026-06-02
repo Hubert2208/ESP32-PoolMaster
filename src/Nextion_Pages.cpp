@@ -1,3 +1,5 @@
+#include "Config.h"
+#ifdef TFT_CONNECTED
 /*
   NEXTION PAGES TFT related code, based on EasyNextion library by Seithan / Athanasios Seitanis.
   Used to define and display the pages (others than menu)
@@ -582,3 +584,8 @@ char map(int x, int in_min, int in_max, int out_min, int out_max) {
     return 0;
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
+
+#else // !TFT_CONNECTED
+// Stubs when no TFT display is connected
+#include <Arduino.h>
+#endif // TFT_CONNECTED

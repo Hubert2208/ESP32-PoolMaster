@@ -1,3 +1,5 @@
+#include "Config.h"
+#ifdef TFT_CONNECTED
 /*
   NEXTION EVENTS TFT related code, based on EasyNextion library by Seithan / Athanasios Seitanis.
   Used describe all the events and actions that are triggered by the Nextion display.
@@ -266,4 +268,10 @@ void graphTable(CircularBuffer<int,NUMBER_OF_HISTORY_SAMPLES> &_sample_table, in
   Serial2.write(buf,sample_table_size);
   myNex.writeAllowed=true;
 }
+
+#else // !TFT_CONNECTED
+// Stubs when no TFT display is connected
+#include <Arduino.h>
+void NexEvents_Init() {}
+#endif // TFT_CONNECTED
 

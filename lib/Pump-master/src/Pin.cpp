@@ -1,6 +1,9 @@
 #include "Arduino.h"
 #include "Pin.h"
 
+#ifdef KC868_A8
+  #include "KC868A8_IO.h"
+#endif
 
 //Constructor
 PIN::PIN(uint8_t _pin_number, uint8_t _pin_direction, bool _active_level)
