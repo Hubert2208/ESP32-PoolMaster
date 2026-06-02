@@ -30,7 +30,7 @@
 
 //Version of config stored in EEPROM
 //Random value. Change this value (to any other value) to revert the config to default values
-#define CONFIG_VERSION 70
+#define CONFIG_VERSION 50
 
 // ============================================================
 // TFT DISPLAY CONFIGURATION
@@ -47,17 +47,17 @@
 // When enabled, the simulated value replaces the real sensor value.
 // When disabled, the real sensor value is used.
 // ============================================================
-#define SIMU_CHL_LEVEL      0       // Chlorine tank level simulation
-#define SIMU_PH_LEVEL       0       // Acid tank level simulation
-#define SIMU_POOL_LEVEL     0       // Pool water level simulation
-#define SIMU_PH             0       // pH sensor simulation
-#define SIMU_ORP            0       // ORP sensor simulation
-#define SIMU_PSI            0       // Pressure sensor simulation
+#define SIMU_CHL_LEVEL      1       // Chlorine tank level simulation
+#define SIMU_PH_LEVEL       1       // Acid tank level simulation
+#define SIMU_POOL_LEVEL     1       // Pool water level simulation
+#define SIMU_PH             1       // pH sensor simulation
+#define SIMU_ORP            1       // ORP sensor simulation
+#define SIMU_PSI            1       // Pressure sensor simulation
 
 // Simulation default values (used when simulation is enabled)
 #define SIMU_PH_VALUE       7.2     // Default simulated pH
 #define SIMU_ORP_VALUE      720.0   // Default simulated ORP (mV)
-#define SIMU_PSI_VALUE      0.35    // Default simulated pressure (bar)
+#define SIMU_PSI_VALUE      0.1    // Default simulated pressure (bar)
 #define SIMU_CHL_LEVEL_VALUE  1     // Default: HIGH (tank not empty)
 #define SIMU_PH_LEVEL_VALUE   1     // Default: HIGH (tank not empty)
 #define SIMU_POOL_LEVEL_VALUE 1     // Default: HIGH (pool level OK)
@@ -65,9 +65,9 @@
 // If you need to force network parameters (configuration with no screen)
 #define FORCE_NETWORK_PARAMS
 #ifdef FORCE_NETWORK_PARAMS
-  #define FWIFI_NETWORK "<WIFI_SSID>"
-  #define FWIFI_PASSWORD "<WIFI_PWD>"
-  #define FMQTT_SERVER "<MQTT_SERVER_IP>"
+  #define FWIFI_NETWORK "Mayer2"
+  #define FWIFI_PASSWORD "Moritz26tOR"
+  #define FMQTT_SERVER "192.168.178.223"
   #define FMQTT_PORT 1883
   #define FMQTT_LOGIN "<MQTT_LOGIN>"
   #define FMQTT_PASS "<MQTT_PWD>"
