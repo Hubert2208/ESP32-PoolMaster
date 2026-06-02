@@ -52,12 +52,12 @@
 #define SIMU_POOL_LEVEL     0       // Pool water level simulation
 #define SIMU_PH             0       // pH sensor simulation
 #define SIMU_ORP            0       // ORP sensor simulation
-#define SIMU_PSI            0       // Pressure sensor simulation
+#define SIMU_PSI            1       // Pressure sensor simulation
 
 // Simulation default values (used when simulation is enabled)
 #define SIMU_PH_VALUE       7.2     // Default simulated pH
 #define SIMU_ORP_VALUE      720.0   // Default simulated ORP (mV)
-#define SIMU_PSI_VALUE      0.35    // Default simulated pressure (bar)
+#define SIMU_PSI_VALUE      0.1     // Default simulated pressure (bar)
 #define SIMU_CHL_LEVEL_VALUE  1     // Default: HIGH (tank not empty)
 #define SIMU_PH_LEVEL_VALUE   1     // Default: HIGH (tank not empty)
 #define SIMU_POOL_LEVEL_VALUE 1     // Default: HIGH (pool level OK)

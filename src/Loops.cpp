@@ -1,6 +1,7 @@
 #include <Arduino.h>                // Arduino framework
 #include "Config.h"
 #include "PoolMaster.h"
+#include "SensorSimulation.h"
 
 // Setup oneWire instances to communicate with temperature sensors (one bus per sensor)
 static OneWire oneWire_W(ONE_WIRE_BUS_W);
@@ -109,9 +110,17 @@ void AnalogPoll(void *pvParameters)
       adc_int.start();
 
       //PSI (water pressure)
-      samples_PSI.add(psi_sensor_value);        // compute average of PSI from last 5 measurements
-      PMData.PSIValue = (samples_PSI.getAverage(5)*0.1875/1000.)*PMConfig.get<double>(PSICALIBCOEFFS0) + PMConfig.get<double>(PSICALIBCOEFFS1);
-      PMData.PSIValue = (PMData.PSIValue < 0)? 0 : PMData.PSIValue;
+      #ifdef SENSOR_SIMULATION
+      if (SimSensor.isSimulating(SENSOR_PSI)) {
+        PMData.PSIValue = SimSensor.getSimulatedValue(SENSOR_PSI);
+      } else {
+      #endif
+        samples_PSI.add(psi_sensor_value);        // compute average of PSI from last 5 measurements
+        PMData.PSIValue = (samples_PSI.getAverage(5)*0.1875/1000.)*PMConfig.get<double>(PSICALIBCOEFFS0) + PMConfig.get<double>(PSICALIBCOEFFS1);
+        PMData.PSIValue = (PMData.PSIValue < 0)? 0 : PMData.PSIValue;
+      #ifdef SENSOR_SIMULATION
+      }
+      #endif
     }
     unlockI2C();
 
@@ -216,9 +225,17 @@ void AnalogPoll(void *pvParameters)
 #endif
 
         //PSI (water pressure)
-        samples_PSI.add(psi_sensor_value);        // compute average of PSI from last 5 measurements
-        PMData.PSIValue = (samples_PSI.getAverage(5)*0.1875/1000.)*PMConfig.get<double>(PSICALIBCOEFFS0) + PMConfig.get<double>(PSICALIBCOEFFS1);
-        PMData.PSIValue = (PMData.PSIValue < 0)? 0 : PMData.PSIValue;
+        #ifdef SENSOR_SIMULATION
+        if (SimSensor.isSimulating(SENSOR_PSI)) {
+          PMData.PSIValue = SimSensor.getSimulatedValue(SENSOR_PSI);
+        } else {
+        #endif
+          samples_PSI.add(psi_sensor_value);        // compute average of PSI from last 5 measurements
+          PMData.PSIValue = (samples_PSI.getAverage(5)*0.1875/1000.)*PMConfig.get<double>(PSICALIBCOEFFS0) + PMConfig.get<double>(PSICALIBCOEFFS1);
+          PMData.PSIValue = (PMData.PSIValue < 0)? 0 : PMData.PSIValue;
+        #ifdef SENSOR_SIMULATION
+        }
+        #endif
 
         Debug.print(DBG_DEBUG,"pH: %5.0f - %4.2f - ORP: %5.0f - %3.0fmV - PSI: %5.0f - %4.2fBar\r",
             ph_sensor_value,PMData.PhValue,orp_sensor_value,PMData.OrpValue,psi_sensor_value,PMData.PSIValue);
