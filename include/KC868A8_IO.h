@@ -4,9 +4,9 @@
  * Provides digitalWrite/digitalRead/pinMode redirection for KC868-A8 hardware.
  * Virtual pins (100+) are mapped to PCF8574 I2C expanders.
  * 
- * Relay outputs (100-107): PCF8574 @ 0x24, active LOW via ULN2003A
- *   - digitalWrite(pin, HIGH) → relay ON → PCF8574 bit = LOW
- *   - digitalWrite(pin, LOW)  → relay OFF → PCF8574 bit = HIGH
+ * Relay outputs (100-107): PCF8574 @ 0x24, active HIGH via ULN2003A
+ *   - digitalWrite(pin, HIGH) → relay ON → PCF8574 bit = HIGH
+ *   - digitalWrite(pin, LOW)  → relay OFF → PCF8574 bit = LOW
  * 
  * Digital inputs (110-117): PCF8574 @ 0x22, active LOW
  *   - digitalRead(pin) → HIGH = inactive, LOW = active (optocoupler triggered)
