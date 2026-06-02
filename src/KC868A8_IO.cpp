@@ -3,12 +3,13 @@
  * 
  * Hardware:
  *   PCF8574 @ 0x24: 8-bit I/O expander for relay outputs
- *     - ULN2003A driver: LOW on PCF8574 = relay ON, HIGH = relay OFF
- *     - Active LOW logic
+ *     - ULN2003A driver: HIGH on PCF8574 = relay ON, LOW = relay OFF
+ *     - Active HIGH logic
  * 
  *   PCF8574 @ 0x22: 8-bit I/O expander for digital inputs
  *     - Optocoupled inputs: LOW when triggered (circuit closed)
  *     - Active LOW logic
+ *     - We invert so digitalRead returns HIGH when active
  * 
  * Virtual Pin Mapping:
  *   100-107: Relay outputs (PCF8574 @ 0x24, bits 0-7)
@@ -26,7 +27,7 @@
 KC868A8_IO KC868;
 
 KC868A8_IO::KC868A8_IO() 
-    : relayState(0xFF),  // All relays OFF initially (active LOW, so HIGH = OFF)
+    : relayState(0x00),  // All relays OFF initially (LOW = OFF)
       inputState(0x00),
       lastInputState(0x00),
       initialized(false) {
@@ -35,7 +36,7 @@ KC868A8_IO::KC868A8_IO()
 void KC868A8_IO::begin() {
     // I2C should already be initialized (Wire.begin in Setup.cpp)
     // Initialize relay outputs - all OFF
-    relayState = 0xFF;  // All HIGH = all relays OFF
+    relayState = 0x00;  // All LOW = all relays OFF
     Wire.beginTransmission(KC868_RELAY_I2C_ADDR);
     Wire.write(relayState);
     Wire.endTransmission();
@@ -71,11 +72,11 @@ void KC868A8_IO::digitalWrite(uint8_t pin, uint8_t value) {
     if (IS_KC868_RELAY_PIN(pin)) {
         uint8_t bit = pin - 100;
         if (value) {
-            // Relay ON → PCF8574 bit LOW (active LOW)
-            relayState &= ~(1 << bit);
-        } else {
-            // Relay OFF → PCF8574 bit HIGH
+            // Relay ON → PCF8574 bit HIGH
             relayState |= (1 << bit);
+        } else {
+            // Relay OFF → PCF8574 bit LOW
+            relayState &= ~(1 << bit);
         }
         writeOutputs();
     }
@@ -94,7 +95,7 @@ uint8_t KC868A8_IO::digitalRead(uint8_t pin) {
     if (IS_KC868_RELAY_PIN(pin)) {
         // Read current relay state
         uint8_t bit = pin - 100;
-        return !((relayState >> bit) & 1);  // Invert: HIGH = relay ON
+        return (relayState >> bit) & 1;  // HIGH = relay ON
     }
     
     return 0;
@@ -109,16 +110,16 @@ void KC868A8_IO::setRelay(uint8_t relayIndex, bool on) {
     if (relayIndex > 7) return;
     
     if (on) {
-        relayState &= ~(1 << relayIndex);   // LOW = relay ON
+        relayState |= (1 << relayIndex);    // HIGH = relay ON
     } else {
-        relayState |= (1 << relayIndex);    // HIGH = relay OFF
+        relayState &= ~(1 << relayIndex);   // LOW = relay OFF
     }
     writeOutputs();
 }
 
 bool KC868A8_IO::getRelay(uint8_t relayIndex) {
     if (relayIndex > 7) return false;
-    return !((relayState >> relayIndex) & 1);  // Invert: true = ON
+    return (relayState >> relayIndex) & 1;  // true = ON
 }
 
 bool KC868A8_IO::getInput(uint8_t inputIndex) {
