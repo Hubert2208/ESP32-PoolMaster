@@ -176,8 +176,16 @@ void syncRTC2ESP() {
 #else // !TFT_CONNECTED
 // Stubs when no TFT display is connected
 #include <Arduino.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
 void ResetTFT() {}
-void UpdateTFT(void*) {}
+void UpdateTFT(void*) {
+  // Must not return — FreeRTOS task requires loop or explicit delete
+  for (;;) {
+    vTaskDelay(pdMS_TO_TICKS(1000));
+  }
+}
 void syncESP2RTC(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t) {}
 void syncRTC2ESP() {}
 #endif // TFT_CONNECTED

@@ -193,7 +193,9 @@ void setup()
   info();
   Debug.print(DBG_INFO,"Booting PoolMaster Version: %s",FIRMW);
   // Initialize Nextion TFT
+  #ifdef TFT_CONNECTED
   ResetTFT();
+  #endif
   PoolMaster_BoardReady = true;
   /*
   //Read ConfigVersion. If does not match expected value, restore default values
@@ -516,6 +518,7 @@ void setup()
   );
 
   // NEXTION Screen Update
+  #ifdef TFT_CONNECTED
   xTaskCreatePinnedToCore(
     UpdateTFT,
     "UpdateTFT",
@@ -525,6 +528,7 @@ void setup()
     nullptr, 
     app_cpu
   );
+  #endif
 
   // History Stats Storage
   xTaskCreatePinnedToCore(
