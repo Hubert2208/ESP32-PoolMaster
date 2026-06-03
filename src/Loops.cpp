@@ -102,6 +102,14 @@ void AnalogPoll(void *pvParameters)
       samples_Orp.add(orp_sensor_value);        // compute average of ORP from last 5 measurements
       PMData.OrpValue = (samples_Orp.getAverage(5)*0.1875/1000.)*PMConfig.get<double>(ORPCALIBCOEFFS0) + PMConfig.get<double>(ORPCALIBCOEFFS1);
 
+#ifdef KC868_A8
+      // Override with simulated values when simulation is active
+      double simPH = SimSensor.getSimulatedValue(SimSensor.SENSOR_PH);
+      if (!isnan(simPH)) PMData.PhValue = simPH;
+      double simORP = SimSensor.getSimulatedValue(SimSensor.SENSOR_ORP);
+      if (!isnan(simORP)) PMData.OrpValue = simORP;
+#endif
+
       Debug.print(DBG_DEBUG,"pH: %5.0f - %4.2f - ORP: %5.0f - %3.0fmV - PSI: %5.0f - %4.2fBar\r",
         ph_sensor_value,PMData.PhValue,orp_sensor_value,PMData.OrpValue,psi_sensor_value,PMData.PSIValue);
     }
@@ -116,6 +124,12 @@ void AnalogPoll(void *pvParameters)
       samples_PSI.add(psi_sensor_value);        // compute average of PSI from last 5 measurements
       PMData.PSIValue = (samples_PSI.getAverage(5)*0.1875/1000.)*PMConfig.get<double>(PSICALIBCOEFFS0) + PMConfig.get<double>(PSICALIBCOEFFS1);
       PMData.PSIValue = (PMData.PSIValue < 0)? 0 : PMData.PSIValue;
+
+#ifdef KC868_A8
+      // Override with simulated value when simulation is active
+      double simPSI = SimSensor.getSimulatedValue(SimSensor.SENSOR_PSI);
+      if (!isnan(simPSI)) PMData.PSIValue = simPSI;
+#endif
     }
     unlockI2C();
 
@@ -175,6 +189,26 @@ void AnalogPoll(void *pvParameters)
         samples_Ph.add(ph_sensor_value);          // compute average of pH from center 5 measurements among 11
         PMData.PhValue = (samples_Ph.getAverage(5)*0.1875/1000.)*PMConfig.get<double>(PHCALIBCOEFFS0) + PMConfig.get<double>(PHCALIBCOEFFS1);
 
+        //ORP
+        samples_Orp.add(orp_sensor_value);        // compute average of ORP from last 5 measurements
+        PMData.OrpValue = (samples_Orp.getAverage(5)*0.1875/1000.)*PMConfig.get<double>(ORPCALIBCOEFFS0) + PMConfig.get<double>(ORPCALIBCOEFFS1);
+
+        //PSI (water pressure)
+        samples_PSI.add(psi_sensor_value);        // compute average of PSI from last 5 measurements
+        PMData.PSIValue = (samples_PSI.getAverage(5)*0.1875/1000.)*PMConfig.get<double>(PSICALIBCOEFFS0) + PMConfig.get<double>(PSICALIBCOEFFS1);
+        PMData.PSIValue = (PMData.PSIValue < 0)? 0 : PMData.PSIValue;
+
+#ifdef KC868_A8
+        // Override with simulated values when simulation is active
+        // This must happen after calibration but before the SIMU PID blocks
+        double simPH = SimSensor.getSimulatedValue(SimSensor.SENSOR_PH);
+        if (!isnan(simPH)) PMData.PhValue = simPH;
+        double simORP = SimSensor.getSimulatedValue(SimSensor.SENSOR_ORP);
+        if (!isnan(simORP)) PMData.OrpValue = simORP;
+        double simPSI = SimSensor.getSimulatedValue(SimSensor.SENSOR_PSI);
+        if (!isnan(simPSI)) PMData.PSIValue = simPSI;
+#endif
+
 #ifdef SIMU
         if(!init_simu){
             if(newpHOutput) {
@@ -201,10 +235,6 @@ void AnalogPoll(void *pvParameters)
         }  
 #endif
 
-        //ORP
-        samples_Orp.add(orp_sensor_value);        // compute average of ORP from last 5 measurements
-        PMData.OrpValue = (samples_Orp.getAverage(5)*0.1875/1000.)*PMConfig.get<double>(ORPCALIBCOEFFS0) + PMConfig.get<double>(ORPCALIBCOEFFS1);
-
 #ifdef SIMU
         if(!init_simu){
             if(newChlOutput) {
@@ -218,11 +248,6 @@ void AnalogPoll(void *pvParameters)
             OrpLastTime = millis();    
         } 
 #endif
-
-        //PSI (water pressure)
-        samples_PSI.add(psi_sensor_value);        // compute average of PSI from last 5 measurements
-        PMData.PSIValue = (samples_PSI.getAverage(5)*0.1875/1000.)*PMConfig.get<double>(PSICALIBCOEFFS0) + PMConfig.get<double>(PSICALIBCOEFFS1);
-        PMData.PSIValue = (PMData.PSIValue < 0)? 0 : PMData.PSIValue;
 
         Debug.print(DBG_DEBUG,"pH: %5.0f - %4.2f - ORP: %5.0f - %3.0fmV - PSI: %5.0f - %4.2fBar\r",
             ph_sensor_value,PMData.PhValue,orp_sensor_value,PMData.OrpValue,psi_sensor_value,PMData.PSIValue);
