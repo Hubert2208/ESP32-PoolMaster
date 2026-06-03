@@ -354,6 +354,16 @@ void setup()
   PoolDeviceManager.InitDevicesInterlock();
   PoolDeviceManager.Begin();
 
+#ifdef KC868_A8
+  // Force all relays OFF after device initialization
+  // Pump constructor defaults to ACTIVE_LOW, but KC868-A8 hardware is ACTIVE_HIGH
+  // PIN::Begin() would set relays ON due to this mismatch — fix it here
+  for (uint8_t i = 0; i < 8; i++) {
+    KC868.setRelay(i, false);
+  }
+  Serial.println("[KC868-A8] All relays forced OFF after init");
+#endif
+
   // Initialize watch-dog
   esp_task_wdt_init(WDT_TIMEOUT, true);
 
