@@ -1,107 +1,97 @@
+/*
+ * Sensor Simulation System for ESP32-PoolMaster
+ * 
+ * Provides individual simulation for each sensor type.
+ * Each sensor can be independently enabled/disabled via Config.h flags.
+ * 
+ * Supported sensors:
+ *   - CHL_LEVEL: Chlorine tank level (digital input)
+ *   - PH_LEVEL: Acid tank level (digital input)
+ *   - POOL_LEVEL: Pool water level (digital input)
+ *   - pH: pH sensor (analog via ADS1115)
+ *   - ORP: ORP sensor (analog via ADS1115)
+ *   - PSI: Pressure sensor (analog via ADS1115)
+ * 
+ * Usage:
+ *   1. Set SIMU_* flags in Config.h to enable simulation for specific sensors
+ *   2. Optionally set SIMU_*_VALUE for custom initial values
+ *   3. If a sensor is not physically connected, simulation auto-engages
+ *   4. Simulation does not affect real sensor logic when disabled
+ */
+
 #ifndef SENSOR_SIMULATION_H
 #define SENSOR_SIMULATION_H
 
 #include <Arduino.h>
-#include <Preferences.h>
-
-// Forward declarations for KC868-A8 I/O functions
-// These are implemented in KC868A8_IO.cpp
-void kc868_a8_init();
-uint8_t kc868_a8_digitalRead(uint8_t pin);
-void kc868_a8_digitalWrite(uint8_t pin, uint8_t value);
-
-// ADS1115 multiplexer channel constants (for analog simulation)
-#define ADS1115_MUX_CH0 0x4000  // AIN0
-#define ADS1115_MUX_CH1 0x5000  // AIN1
-#define ADS1115_MUX_CH2 0x6000  // AIN2
-#define ADS1115_MUX_CH3 0x7000  // AIN3
-
-// Default simulated values when no sensor is connected
-#define SIMU_PH_DEFAULT    7.0   // Neutral pH
-#define SIMU_ORP_DEFAULT  700.0  // Typical ORP value (mV)
-#define SIMU_PSI_DEFAULT    1.5  // Typical pool pressure (bar)
-#define SIMU_CHL_DEFAULT  700.0  // Typical chlorine ORP (mV)
 
 class SensorSimulation {
 public:
-    // Sensor index constants for analog simulation (used with getSimulatedValue)
+    // Sensor type constants (public for use in AnalogPoll and other modules)
     static const uint8_t SENSOR_PH = 0;
     static const uint8_t SENSOR_ORP = 1;
     static const uint8_t SENSOR_PSI = 2;
-    static const uint8_t SENSOR_CHL = 3;  // Chlorine (alias for ORP in some configs)
+    static const uint8_t SENSOR_CHL_LEVEL = 3;
+    static const uint8_t SENSOR_PH_LEVEL = 4;
+    static const uint8_t SENSOR_POOL_LEVEL = 5;
+
+    SensorSimulation();
+    
+    // Initialize simulation system
+    void begin();
+    
+    // Update simulation values (called periodically)
+    void loop();
+    
+    // ============================================================
+    // Digital Input Simulation (CHL_LEVEL, PH_LEVEL, POOL_LEVEL)
+    // ============================================================
+    // Returns simulated state for digital inputs
+    // Returns -1 if simulation is not active (use real sensor)
+    int8_t getSimulatedInput(uint8_t pin);
+    
+    // ============================================================
+    // Analog Sensor Simulation (pH, ORP, PSI)
+    // ============================================================
+    // Returns simulated value for analog sensors
+    // Returns NaN if simulation is not active (use real sensor)
+    double getSimulatedValue(uint8_t sensorType);
+    
+    // ============================================================
+    // Manual Value Setters (for runtime adjustment)
+    // ============================================================
+    void setSimPH(double value);
+    void setSimORP(double value);
+    void setSimPSI(double value);
+    void setSimChlLevel(bool active);
+    void setSimPHLevel(bool active);
+    void setSimPoolLevel(bool active);
+    
+    // ============================================================
+    // Status
+    // ============================================================
+    bool isSimulating(uint8_t sensorType);
+    void printStatus();
 
 private:
-    // Simulation level per sensor type
-    // 0 = disabled (use real sensor), 1 = enabled (use simulated value)
-    uint8_t simuPHLevel;
-    uint8_t simuORPLevel;
-    uint8_t simuPSILevel;
-    uint8_t simuCHLLevel;
-
-    // Simulated values (configurable via MQTT or NVS)
-    double simuPHValue;
-    double simuORPValue;
-    double simuPSIValue;
-    double simuCHLValue;
-
-    // Digital input simulation states (pin-based)
-    // Maps KC868-A8 digital pin to simulated state
-    static const uint8_t MAX_SIMU_PINS = 16;
-    int8_t simuDigitalPins[MAX_SIMU_PINS];  // -1 = not simulated, 0/1 = simulated state
-
-    // Preferences key prefix
-    static const char* NVS_NAMESPACE;
-
-public:
-    SensorSimulation();
-
-    // Initialize from NVS (saved settings)
-    void begin();
-
-    // Set simulation level for a sensor type
-    // level: 0 = disabled, 1 = enabled
-    void setSimuLevel(uint8_t sensorType, uint8_t level);
-
-    // Get simulation level for a sensor type
-    uint8_t getSimuLevel(uint8_t sensorType) const;
-
-    // Set simulated value for a sensor
-    void setSimuValue(uint8_t sensorType, double value);
-
-    // Get simulated value for a sensor
-    // Returns the simulated value if simulation is enabled for this sensor,
-    // otherwise returns NAN (not a number) to indicate "use real sensor"
-    double getSimulatedValue(uint8_t sensorType) const;
-
-    // Simulate a digital input pin
-    // pin: KC868-A8 digital pin number
-    // state: 0 or 1
-    void setSimulatedInput(uint8_t pin, uint8_t state);
-
-    // Get simulated digital input state
-    // Returns: 0 or 1 if simulated, -1 if not simulated (use real sensor)
-    int8_t getSimulatedInput(uint8_t pin) const;
-
-    // Check if any simulation is active
-    bool isAnySimulationActive() const;
-
-    // Save current settings to NVS
-    void saveSettings();
-
-    // Load settings from NVS
-    void loadSettings();
-
-    // Reset all simulations to defaults
-    void resetToDefaults();
-
-    // Get sensor type from string (for MQTT commands)
-    static uint8_t sensorTypeFromString(const char* str);
-
-    // Get sensor type as string (for MQTT status)
-    static const char* sensorTypeToString(uint8_t sensorType);
-
-    // Debug: print current simulation state
-    void printStatus() const;
+    // Simulation state
+    bool simulating_chl_level;
+    bool simulating_ph_level;
+    bool simulating_pool_level;
+    bool simulating_ph;
+    bool simulating_orp;
+    bool simulating_psi;
+    
+    // Simulated values
+    double sim_ph_value;
+    double sim_orp_value;
+    double sim_psi_value;
+    bool sim_chl_level;
+    bool sim_ph_level;
+    bool sim_pool_level;
+    
+    // Simulation parameters
+    unsigned long last_update;
+    unsigned long update_interval;
 };
 
 // Global instance
