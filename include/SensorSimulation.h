@@ -26,6 +26,14 @@
 
 class SensorSimulation {
 public:
+    // Sensor type constants (public for use in AnalogPoll and other modules)
+    static const uint8_t SENSOR_PH = 0;
+    static const uint8_t SENSOR_ORP = 1;
+    static const uint8_t SENSOR_PSI = 2;
+    static const uint8_t SENSOR_CHL_LEVEL = 3;
+    static const uint8_t SENSOR_PH_LEVEL = 4;
+    static const uint8_t SENSOR_POOL_LEVEL = 5;
+
     SensorSimulation();
     
     // Initialize simulation system
@@ -84,14 +92,6 @@ private:
     // Simulation parameters
     unsigned long last_update;
     unsigned long update_interval;
-    
-    // Sensor type constants
-    static const uint8_t SENSOR_PH = 0;
-    static const uint8_t SENSOR_ORP = 1;
-    static const uint8_t SENSOR_PSI = 2;
-    static const uint8_t SENSOR_CHL_LEVEL = 3;
-    static const uint8_t SENSOR_PH_LEVEL = 4;
-    static const uint8_t SENSOR_POOL_LEVEL = 5;
 };
 
 // Global instance

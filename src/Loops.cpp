@@ -2,6 +2,10 @@
 #include "Config.h"
 #include "PoolMaster.h"
 
+#ifdef KC868_A8
+  #include "SensorSimulation.h"
+#endif
+
 // Setup oneWire instances to communicate with temperature sensors (one bus per sensor)
 static OneWire oneWire_W(ONE_WIRE_BUS_W);
 static OneWire oneWire_A(ONE_WIRE_BUS_A);
@@ -40,8 +44,8 @@ void unlockI2C();
 // 8sps, that means 128ms instead of 125ms. With 16sps, we have 3 + 62.5 < 125ms which is OK.
 // With those settings, we get a value for each channel roughly every second: 9 values asked 
 // (3 per channel), with height values retrieved per second -> 0,89 value per second. The value
-// returned for each channel is the median of the three samples. Then, among the last 
-// 11 samples returned, we take the 5 median ones and compute the mean as consolidated value.
+// returned for each channel is the median of the three samples. Then, among the last 11
+// samples returned, we take the 5 median ones and compute the mean as consolidated value.
 // With the "Loulou74" board, the sampling is different: we sample PSI at 8sps, and pH, Orp at 
 // 4sps each. Filtering and average is then performed as usual to get a new value every second.
 
@@ -98,6 +102,14 @@ void AnalogPoll(void *pvParameters)
       samples_Orp.add(orp_sensor_value);        // compute average of ORP from last 5 measurements
       PMData.OrpValue = (samples_Orp.getAverage(5)*0.1875/1000.)*PMConfig.get<double>(ORPCALIBCOEFFS0) + PMConfig.get<double>(ORPCALIBCOEFFS1);
 
+#ifdef KC868_A8
+      // Override with simulated values when simulation is active
+      double simPH = SimSensor.getSimulatedValue(SimSensor.SENSOR_PH);
+      if (!isnan(simPH)) PMData.PhValue = simPH;
+      double simORP = SimSensor.getSimulatedValue(SimSensor.SENSOR_ORP);
+      if (!isnan(simORP)) PMData.OrpValue = simORP;
+#endif
+
       Debug.print(DBG_DEBUG,"pH: %5.0f - %4.2f - ORP: %5.0f - %3.0fmV - PSI: %5.0f - %4.2fBar\r",
         ph_sensor_value,PMData.PhValue,orp_sensor_value,PMData.OrpValue,psi_sensor_value,PMData.PSIValue);
     }
@@ -112,6 +124,12 @@ void AnalogPoll(void *pvParameters)
       samples_PSI.add(psi_sensor_value);        // compute average of PSI from last 5 measurements
       PMData.PSIValue = (samples_PSI.getAverage(5)*0.1875/1000.)*PMConfig.get<double>(PSICALIBCOEFFS0) + PMConfig.get<double>(PSICALIBCOEFFS1);
       PMData.PSIValue = (PMData.PSIValue < 0)? 0 : PMData.PSIValue;
+
+#ifdef KC868_A8
+      // Override with simulated value when simulation is active
+      double simPSI = SimSensor.getSimulatedValue(SimSensor.SENSOR_PSI);
+      if (!isnan(simPSI)) PMData.PSIValue = simPSI;
+#endif
     }
     unlockI2C();
 
@@ -171,6 +189,26 @@ void AnalogPoll(void *pvParameters)
         samples_Ph.add(ph_sensor_value);          // compute average of pH from center 5 measurements among 11
         PMData.PhValue = (samples_Ph.getAverage(5)*0.1875/1000.)*PMConfig.get<double>(PHCALIBCOEFFS0) + PMConfig.get<double>(PHCALIBCOEFFS1);
 
+        //ORP
+        samples_Orp.add(orp_sensor_value);        // compute average of ORP from last 5 measurements
+        PMData.OrpValue = (samples_Orp.getAverage(5)*0.1875/1000.)*PMConfig.get<double>(ORPCALIBCOEFFS0) + PMConfig.get<double>(ORPCALIBCOEFFS1);
+
+        //PSI (water pressure)
+        samples_PSI.add(psi_sensor_value);        // compute average of PSI from last 5 measurements
+        PMData.PSIValue = (samples_PSI.getAverage(5)*0.1875/1000.)*PMConfig.get<double>(PSICALIBCOEFFS0) + PMConfig.get<double>(PSICALIBCOEFFS1);
+        PMData.PSIValue = (PMData.PSIValue < 0)? 0 : PMData.PSIValue;
+
+#ifdef KC868_A8
+        // Override with simulated values when simulation is active
+        // This must happen after calibration but before the SIMU PID blocks
+        double simPH = SimSensor.getSimulatedValue(SimSensor.SENSOR_PH);
+        if (!isnan(simPH)) PMData.PhValue = simPH;
+        double simORP = SimSensor.getSimulatedValue(SimSensor.SENSOR_ORP);
+        if (!isnan(simORP)) PMData.OrpValue = simORP;
+        double simPSI = SimSensor.getSimulatedValue(SimSensor.SENSOR_PSI);
+        if (!isnan(simPSI)) PMData.PSIValue = simPSI;
+#endif
+
 #ifdef SIMU
         if(!init_simu){
             if(newpHOutput) {
@@ -197,10 +235,6 @@ void AnalogPoll(void *pvParameters)
         }  
 #endif
 
-        //ORP
-        samples_Orp.add(orp_sensor_value);        // compute average of ORP from last 5 measurements
-        PMData.OrpValue = (samples_Orp.getAverage(5)*0.1875/1000.)*PMConfig.get<double>(ORPCALIBCOEFFS0) + PMConfig.get<double>(ORPCALIBCOEFFS1);
-
 #ifdef SIMU
         if(!init_simu){
             if(newChlOutput) {
@@ -214,11 +248,6 @@ void AnalogPoll(void *pvParameters)
             OrpLastTime = millis();    
         } 
 #endif
-
-        //PSI (water pressure)
-        samples_PSI.add(psi_sensor_value);        // compute average of PSI from last 5 measurements
-        PMData.PSIValue = (samples_PSI.getAverage(5)*0.1875/1000.)*PMConfig.get<double>(PSICALIBCOEFFS0) + PMConfig.get<double>(PSICALIBCOEFFS1);
-        PMData.PSIValue = (PMData.PSIValue < 0)? 0 : PMData.PSIValue;
 
         Debug.print(DBG_DEBUG,"pH: %5.0f - %4.2f - ORP: %5.0f - %3.0fmV - PSI: %5.0f - %4.2fBar\r",
             ph_sensor_value,PMData.PhValue,orp_sensor_value,PMData.OrpValue,psi_sensor_value,PMData.PSIValue);
@@ -251,7 +280,7 @@ void StatusLights(void *pvParameters)
   vTaskDelay(DT7);                                // Scheduling offset 
 
   TickType_t period = PT7;  
-  TickType_t ticktime = xTaskGetTickCount();
+  TickType_t ticktime = xTaskGetTickCount(); 
   static UBaseType_t hwm = 0;
 
   #ifdef CHRONO
@@ -314,7 +343,7 @@ void StatusLights(void *pvParameters)
 
     stack_mon(hwm);
     vTaskDelayUntil(&ticktime,period);
-  }  
+  }
 }
 
 void pHRegulation(void *pvParameters)
@@ -323,7 +352,7 @@ void pHRegulation(void *pvParameters)
   vTaskDelay(DT6);                                // Scheduling offset 
 
   TickType_t period = PT6;  
-  TickType_t ticktime = xTaskGetTickCount();
+  TickType_t ticktime = xTaskGetTickCount(); 
   static UBaseType_t hwm = 0;
 
   #ifdef CHRONO
@@ -392,7 +421,7 @@ void pHRegulation(void *pvParameters)
 
     stack_mon(hwm);
     vTaskDelayUntil(&ticktime,period);
-  }  
+  }
 }
 
 //Orp regulation loop
@@ -402,7 +431,7 @@ void OrpRegulation(void *pvParameters)
   vTaskDelay(DT5);                                // Scheduling offset 
 
   TickType_t period = PT5;  
-  TickType_t ticktime = xTaskGetTickCount();
+  TickType_t ticktime = xTaskGetTickCount(); 
   static UBaseType_t hwm = 0;
 
   #ifdef CHRONO
@@ -501,7 +530,7 @@ void TempInit()
   }  
   if (!sensors_A.getAddress(DS18B20_A, 0)) 
   {
-    Debug.print(DBG_ERROR,"Unable to find address for bus A"); 
+    Debug.print(DBG_ERROR,"Unable to find address for bus A");
     error = true;
   }  
   else {
@@ -537,7 +566,7 @@ void getTemp(void *pvParameters)
   vTaskDelay(DT4);                                // Scheduling offset 
 
   TickType_t period = PT4;  
-  TickType_t ticktime = xTaskGetTickCount();
+  TickType_t ticktime = xTaskGetTickCount(); 
   static UBaseType_t hwm = 0;
 
   #ifdef CHRONO
@@ -587,5 +616,5 @@ void getTemp(void *pvParameters)
 
     stack_mon(hwm);
     vTaskDelayUntil(&ticktime,period);
-  }
+  } 
 }

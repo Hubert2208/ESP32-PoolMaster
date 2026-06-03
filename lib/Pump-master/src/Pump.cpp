@@ -1,6 +1,10 @@
 #include "Arduino.h"
 #include "Pump.h"
 
+#ifdef KC868_A8
+  #include "../../../include/SensorSimulation.h"
+#endif
+
 //Call this in the main loop, for every loop, as often as possible
 void Pump::loop()
 {
@@ -89,7 +93,6 @@ bool Pump::Stop()
     UpTime += millis() - LastLoopMillis; 
 
     
-
     return true;
   } else return false;
 }
@@ -113,6 +116,15 @@ bool Pump::TankLevel()
   }
   else
   {
+#ifdef KC868_A8
+    // Check simulation first: if simulation is active for this sensor,
+    // use the simulated value instead of reading the physical pin.
+    // This prevents false "tank full" readings when no sensor is connected.
+    int8_t simVal = SimSensor.getSimulatedInput(tank_level_pin);
+    if (simVal >= 0) {
+        return (simVal == TANK_FULL);
+    }
+#endif
     return (digitalRead(tank_level_pin) == TANK_FULL);
   } 
 }
@@ -146,7 +158,7 @@ double Pump::GetTankUsage()
     double Consumption = flowrate/60.0*MinutesOfUpTime;
     PercentageUsed = Consumption/tankvolume*100.0;
   }
-  return (PercentageUsed);  
+  return (PercentageUsed); 
 }
 
 //Set flow rate of the pump in Liters/hour
@@ -264,11 +276,10 @@ void Pump::SavePreferences(Preferences& prefs, uint8_t pin_id)  {
     prefs.putULong(key, MinUpTime);
   }
 
-void Pump::LoadPreferences(Preferences& prefs, uint8_t pin_id)  {
+void Pump::LoadPreferences(Preferences& prefs, uint8_t pin_id) {
     Relay::LoadPreferences(prefs,pin_id);
 
     char key[15];
-    //uint8_t tmp_pin_id = GetPinId();
 
     snprintf(key, sizeof(key), "d%d_fr", pin_id);
     flowrate = prefs.getDouble(key, flowrate);
@@ -291,4 +302,3 @@ void Pump::LoadPreferences(Preferences& prefs, uint8_t pin_id)  {
     snprintf(key, sizeof(key), "d%d_mi", pin_id);
     MinUpTime = prefs.getULong(key, MinUpTime);
   }
-
