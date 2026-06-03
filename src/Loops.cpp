@@ -209,7 +209,7 @@ void AnalogPoll(void *pvParameters)
         if (!isnan(simPSI)) PMData.PSIValue = simPSI;
 #endif
 
-#ifdef SIMU
+#if defined(SIMU) && SIMU_PH
         if(!init_simu){
             if(newpHOutput) {
                 pHTab[iw] = PMData.PhPIDOutput;
@@ -217,9 +217,12 @@ void AnalogPoll(void *pvParameters)
                 iw++;
                 iw %= 3;
             }
-            PMData.PhValue = pHLastValue + pHCumul/4500000.*(double)((millis()-pHLastTime)/3600000.);
-            pHLastValue = PMData.PhValue;
-            pHLastTime = millis();
+            // Linear interpolation: pH ramps from start to setpoint over 1 hour
+            {
+                double elapsedMin = (double)(millis() - pHLastTime) / 60000.0;
+                double progress = min(elapsedMin / 60.0, 1.0);  // 0.0 → 1.0 over 60 min
+                PMData.PhValue = pHLastValue + (PMData.Ph_SetPoint - pHLastValue) * progress;
+            }
         } else {
             init_simu = false;
             pHLastTime = millis();
@@ -228,6 +231,7 @@ void AnalogPoll(void *pvParameters)
             PMData.OrpValue = OrpLastValue;
             OrpLastTime = millis();
             OrpLastValue = 730.0;
+            PMData.OrpValue = OrpLastValue;
             for(uint8_t i=0;i<3;i++) {
                 pHTab[i] = 0.;
                 ChlTab[i] = 0.;
@@ -235,7 +239,7 @@ void AnalogPoll(void *pvParameters)
         }  
 #endif
 
-#ifdef SIMU
+#if defined(SIMU) && SIMU_ORP
         if(!init_simu){
             if(newChlOutput) {
             ChlTab[jw] = PMData.OrpPIDOutput;
@@ -243,9 +247,12 @@ void AnalogPoll(void *pvParameters)
             jw++;
             jw %= 3;
             }    
-            PMData.OrpValue = OrpLastValue + ChlCumul/36000.*(double)((millis()-OrpLastTime)/3600000.);
-            OrpLastValue = PMData.OrpValue;
-            OrpLastTime = millis();    
+            // Linear interpolation: ORP ramps from start to setpoint over 1 hour
+            {
+                double elapsedMin = (double)(millis() - OrpLastTime) / 60000.0;
+                double progress = min(elapsedMin / 60.0, 1.0);  // 0.0 → 1.0 over 60 min
+                PMData.OrpValue = OrpLastValue + (PMData.Orp_SetPoint - OrpLastValue) * progress;
+            }    
         } 
 #endif
 
@@ -378,11 +385,11 @@ void pHRegulation(void *pvParameters)
             Debug.print(DBG_INFO,"Ph  regulation: %10.2f, %13.9f, %13.9f, %17.9f",PMData.PhPIDOutput,PMData.PhValue,PMData.Ph_SetPoint,PMConfig.get<double>(PH_KP));
             if(PMData.PhPIDOutput < (double)30000.) PMData.PhPIDOutput = 0.;
             Debug.print(DBG_INFO,"Ph  regulation: %10.2f",PMData.PhPIDOutput);
-        #ifdef SIMU
+        #if defined(SIMU) && SIMU_PH
             newpHOutput = true;
         #endif            
           }
-        #ifdef SIMU
+        #if defined(SIMU) && SIMU_PH
           else newpHOutput = false;
         #endif    
           /************************************************
@@ -456,11 +463,11 @@ void OrpRegulation(void *pvParameters)
           Debug.print(DBG_INFO,"ORP regulation: %10.2f, %13.9f, %12.9f, %17.9f",PMData.OrpPIDOutput,PMData.OrpValue,PMData.Orp_SetPoint,PMConfig.get<double>(ORP_KP));
           if(PMData.OrpPIDOutput < (double)30000.) PMData.OrpPIDOutput = 0.;    
             Debug.print(DBG_INFO,"Orp regulation: %10.2f",PMData.OrpPIDOutput);
-      #ifdef SIMU
+      #if defined(SIMU) && SIMU_ORP
             newChlOutput = true;
       #endif      
           }
-      #ifdef SIMU
+      #if defined(SIMU) && SIMU_ORP
           else newChlOutput = false;
       #endif    
         /************************************************
