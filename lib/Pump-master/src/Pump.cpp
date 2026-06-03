@@ -2,7 +2,7 @@
 #include "Pump.h"
 
 #ifdef KC868_A8
-  #include "SensorSimulation.h"
+  #include "../../include/SensorSimulation.h"
 #endif
 
 //Call this in the main loop, for every loop, as often as possible
