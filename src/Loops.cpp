@@ -209,7 +209,7 @@ void AnalogPoll(void *pvParameters)
         if (!isnan(simPSI)) PMData.PSIValue = simPSI;
 #endif
 
-#ifdef SIMU
+#if defined(SIMU) && SIMU_PH
         if(!init_simu){
             if(newpHOutput) {
                 pHTab[iw] = PMData.PhPIDOutput;
@@ -235,7 +235,7 @@ void AnalogPoll(void *pvParameters)
         }  
 #endif
 
-#ifdef SIMU
+#if defined(SIMU) && SIMU_ORP
         if(!init_simu){
             if(newChlOutput) {
             ChlTab[jw] = PMData.OrpPIDOutput;
@@ -378,11 +378,11 @@ void pHRegulation(void *pvParameters)
             Debug.print(DBG_INFO,"Ph  regulation: %10.2f, %13.9f, %13.9f, %17.9f",PMData.PhPIDOutput,PMData.PhValue,PMData.Ph_SetPoint,PMConfig.get<double>(PH_KP));
             if(PMData.PhPIDOutput < (double)30000.) PMData.PhPIDOutput = 0.;
             Debug.print(DBG_INFO,"Ph  regulation: %10.2f",PMData.PhPIDOutput);
-        #ifdef SIMU
+        #if defined(SIMU) && SIMU_PH
             newpHOutput = true;
         #endif            
           }
-        #ifdef SIMU
+        #if defined(SIMU) && SIMU_PH
           else newpHOutput = false;
         #endif    
           /************************************************
@@ -456,11 +456,11 @@ void OrpRegulation(void *pvParameters)
           Debug.print(DBG_INFO,"ORP regulation: %10.2f, %13.9f, %12.9f, %17.9f",PMData.OrpPIDOutput,PMData.OrpValue,PMData.Orp_SetPoint,PMConfig.get<double>(ORP_KP));
           if(PMData.OrpPIDOutput < (double)30000.) PMData.OrpPIDOutput = 0.;    
             Debug.print(DBG_INFO,"Orp regulation: %10.2f",PMData.OrpPIDOutput);
-      #ifdef SIMU
+      #if defined(SIMU) && SIMU_ORP
             newChlOutput = true;
       #endif      
           }
-      #ifdef SIMU
+      #if defined(SIMU) && SIMU_ORP
           else newChlOutput = false;
       #endif    
         /************************************************
