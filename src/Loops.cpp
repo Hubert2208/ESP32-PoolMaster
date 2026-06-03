@@ -2,6 +2,10 @@
 #include "Config.h"
 #include "PoolMaster.h"
 
+#ifdef KC868_A8
+  #include "SensorSimulation.h"
+#endif
+
 // Setup oneWire instances to communicate with temperature sensors (one bus per sensor)
 static OneWire oneWire_W(ONE_WIRE_BUS_W);
 static OneWire oneWire_A(ONE_WIRE_BUS_A);
@@ -40,8 +44,8 @@ void unlockI2C();
 // 8sps, that means 128ms instead of 125ms. With 16sps, we have 3 + 62.5 < 125ms which is OK.
 // With those settings, we get a value for each channel roughly every second: 9 values asked 
 // (3 per channel), with height values retrieved per second -> 0,89 value per second. The value
-// returned for each channel is the median of the three samples. Then, among the last 
-// 11 samples returned, we take the 5 median ones and compute the mean as consolidated value.
+// returned for each channel is the median of the three samples. Then, among the last 11
+// samples returned, we take the 5 median ones and compute the mean as consolidated value.
 // With the "Loulou74" board, the sampling is different: we sample PSI at 8sps, and pH, Orp at 
 // 4sps each. Filtering and average is then performed as usual to get a new value every second.
 
@@ -251,7 +255,7 @@ void StatusLights(void *pvParameters)
   vTaskDelay(DT7);                                // Scheduling offset 
 
   TickType_t period = PT7;  
-  TickType_t ticktime = xTaskGetTickCount();
+  TickType_t ticktime = xTaskGetTickCount(); 
   static UBaseType_t hwm = 0;
 
   #ifdef CHRONO
@@ -314,7 +318,7 @@ void StatusLights(void *pvParameters)
 
     stack_mon(hwm);
     vTaskDelayUntil(&ticktime,period);
-  }  
+  }
 }
 
 void pHRegulation(void *pvParameters)
@@ -323,7 +327,7 @@ void pHRegulation(void *pvParameters)
   vTaskDelay(DT6);                                // Scheduling offset 
 
   TickType_t period = PT6;  
-  TickType_t ticktime = xTaskGetTickCount();
+  TickType_t ticktime = xTaskGetTickCount(); 
   static UBaseType_t hwm = 0;
 
   #ifdef CHRONO
@@ -392,7 +396,7 @@ void pHRegulation(void *pvParameters)
 
     stack_mon(hwm);
     vTaskDelayUntil(&ticktime,period);
-  }  
+  }
 }
 
 //Orp regulation loop
@@ -402,7 +406,7 @@ void OrpRegulation(void *pvParameters)
   vTaskDelay(DT5);                                // Scheduling offset 
 
   TickType_t period = PT5;  
-  TickType_t ticktime = xTaskGetTickCount();
+  TickType_t ticktime = xTaskGetTickCount(); 
   static UBaseType_t hwm = 0;
 
   #ifdef CHRONO
@@ -501,7 +505,7 @@ void TempInit()
   }  
   if (!sensors_A.getAddress(DS18B20_A, 0)) 
   {
-    Debug.print(DBG_ERROR,"Unable to find address for bus A"); 
+    Debug.print(DBG_ERROR,"Unable to find address for bus A");
     error = true;
   }  
   else {
@@ -537,7 +541,7 @@ void getTemp(void *pvParameters)
   vTaskDelay(DT4);                                // Scheduling offset 
 
   TickType_t period = PT4;  
-  TickType_t ticktime = xTaskGetTickCount();
+  TickType_t ticktime = xTaskGetTickCount(); 
   static UBaseType_t hwm = 0;
 
   #ifdef CHRONO
@@ -587,5 +591,5 @@ void getTemp(void *pvParameters)
 
     stack_mon(hwm);
     vTaskDelayUntil(&ticktime,period);
-  }
+  } 
 }
