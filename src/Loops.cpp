@@ -40,7 +40,7 @@ void unlockI2C();
 //Update loop for ADS1115 measurements
 // Some explanations: The sampling rate is set to 16sps in order to be sure that 
 // every 125ms (which is the period of the task) there is a sample available. As it takes 3ms to
-// update and restart the ADC, the whole loop takes a minimum of 3 + 1/SPS ms. If SPS was set to 
+// update and restart the ADC, the whole loop takes a minimum of 3 + 1/SPS ms. If SPS was set to
 // 8sps, that means 128ms instead of 125ms. With 16sps, we have 3 + 62.5 < 125ms which is OK.
 // With those settings, we get a value for each channel roughly every second: 9 values asked 
 // (3 per channel), with height values retrieved per second -> 0,89 value per second. The value
@@ -103,7 +103,9 @@ void AnalogPoll(void *pvParameters)
       PMData.OrpValue = (samples_Orp.getAverage(5)*0.1875/1000.)*PMConfig.get<double>(ORPCALIBCOEFFS0) + PMConfig.get<double>(ORPCALIBCOEFFS1);
 
 #ifdef KC868_A8
-      // Override with simulated values when simulation is active
+      // Update PID feedback simulation and override with simulated values
+      SimSensor.loop();  // Compute new simulated values from PID outputs
+      SimSensor.setPIDOutputs(PMData.PhPIDOutput, PMData.OrpPIDOutput);
       double simPH = SimSensor.getSimulatedValue(SimSensor.SENSOR_PH);
       if (!isnan(simPH)) PMData.PhValue = simPH;
       double simORP = SimSensor.getSimulatedValue(SimSensor.SENSOR_ORP);
@@ -199,8 +201,9 @@ void AnalogPoll(void *pvParameters)
         PMData.PSIValue = (PMData.PSIValue < 0)? 0 : PMData.PSIValue;
 
 #ifdef KC868_A8
-        // Override with simulated values when simulation is active
-        // This must happen after calibration but before the SIMU PID blocks
+        // Update PID feedback simulation and override with simulated values
+        SimSensor.loop();  // Compute new simulated values from PID outputs
+        SimSensor.setPIDOutputs(PMData.PhPIDOutput, PMData.OrpPIDOutput);
         double simPH = SimSensor.getSimulatedValue(SimSensor.SENSOR_PH);
         if (!isnan(simPH)) PMData.PhValue = simPH;
         double simORP = SimSensor.getSimulatedValue(SimSensor.SENSOR_ORP);
