@@ -78,7 +78,8 @@ void SensorSimulation::loop() {
         sim_ph_value += phDelta;
         if (sim_ph_value < 0.0) sim_ph_value = 0.0;
         if (sim_ph_value > 14.0) sim_ph_value = 14.0;
-        Debug.print(DBG_INFO, "[Sim] pH: %.3f (PID: %.0f, dt: %.3fs, delta: %.6f)",
+        // Use Serial.printf directly - Debug.print is suppressed at CORE_DEBUG_LEVEL=0
+        Serial.printf("[Sim] pH: %.3f PID: %.0f dt: %.3fs delta: %.6f\n",
             sim_ph_value, last_ph_output, dt_seconds, phDelta);
     }
     
@@ -90,7 +91,7 @@ void SensorSimulation::loop() {
         sim_orp_value += orpDelta;
         if (sim_orp_value < 0.0) sim_orp_value = 0.0;
         if (sim_orp_value > 1000.0) sim_orp_value = 1000.0;
-        Debug.print(DBG_INFO, "[Sim] ORP: %.1f (PID: %.0f, dt: %.3fs, delta: %.3f)",
+        Serial.printf("[Sim] ORP: %.1f PID: %.0f dt: %.3fs delta: %.3f\n",
             sim_orp_value, last_orp_output, dt_seconds, orpDelta);
     }
 }
