@@ -27,6 +27,8 @@ SensorSimulation::SensorSimulation()
       sim_chl_level(SIMU_CHL_LEVEL_VALUE),
       sim_ph_level(SIMU_PH_LEVEL_VALUE),
       sim_pool_level(SIMU_POOL_LEVEL_VALUE),
+      last_ph_output(0.0),
+      last_orp_output(0.0),
       last_update(0),
       update_interval(1000) {  // Update every second
 }
@@ -62,11 +64,46 @@ void SensorSimulation::begin() {
 
 void SensorSimulation::loop() {
     unsigned long now = millis();
-    if (now - last_update < update_interval) return;
+    double dt_seconds = (now - last_update) / 1000.0;
     last_update = now;
     
-    // Optional: Add dynamic simulation behavior here
-    // For example, slowly ramp values or add noise
+    // Skip first iteration (dt would be wrong)
+    if (dt_seconds <= 0.0 || dt_seconds > 10.0) return;
+    
+    // ============================================================
+    // pH Simulation (PID Feedback)
+    // ============================================================
+    // PhPID_DIRECTION is REVERSE:
+    //   When pH > setpoint: PID output high -> acid pump runs -> pH decreases
+    //   When pH < setpoint: PID output low/zero -> no acid -> pH stable
+    //   Model: dpH/dt = -KPH * PID_output * dt
+    if (simulating_ph) {
+        double phDelta = -SIM_KPH * last_ph_output * dt_seconds;
+        sim_ph_value += phDelta;
+        // Clamp pH to valid range [0.0, 14.0]
+        if (sim_ph_value < 0.0) sim_ph_value = 0.0;
+        if (sim_ph_value > 14.0) sim_ph_value = 14.0;
+    }
+    
+    // ============================================================
+    // ORP Simulation (PID Feedback)
+    // ============================================================
+    // OrpPID_DIRECTION is DIRECT:
+    //   When ORP < setpoint: PID output high -> chlorine pump runs -> ORP increases
+    //   When ORP > setpoint: PID output low/zero -> no chlorine -> ORP stable
+    //   Model: dORP/dt = KORP * PID_output * dt
+    if (simulating_orp) {
+        double orpDelta = SIM_KORP * last_orp_output * dt_seconds;
+        sim_orp_value += orpDelta;
+        // Clamp ORP to valid range [0, 1000] mV
+        if (sim_orp_value < 0.0) sim_orp_value = 0.0;
+        if (sim_orp_value > 1000.0) sim_orp_value = 1000.0;
+    }
+}
+
+void SensorSimulation::setPIDOutputs(double phOutput, double orpOutput) {
+    last_ph_output = phOutput;
+    last_orp_output = orpOutput;
 }
 
 int8_t SensorSimulation::getSimulatedInput(uint8_t pin) {
@@ -155,10 +192,10 @@ void SensorSimulation::printStatus() {
     Serial.printf("  POOL_LEVEL: %s (value: %s)\n",
         simulating_pool_level ? "SIM" : "REAL",
         sim_pool_level ? "HIGH" : "LOW");
-    Serial.printf("  pH: %s (value: %.2f)\n",
-        simulating_ph ? "SIM" : "REAL", sim_ph_value);
-    Serial.printf("  ORP: %s (value: %.1f)\n",
-        simulating_orp ? "SIM" : "REAL", sim_orp_value);
+    Serial.printf("  pH: %s (value: %.2f, lastPID: %.0f)\n",
+        simulating_ph ? "SIM" : "REAL", sim_ph_value, last_ph_output);
+    Serial.printf("  ORP: %s (value: %.1f, lastPID: %.0f)\n",
+        simulating_orp ? "SIM" : "REAL", sim_orp_value, last_orp_output);
     Serial.printf("  PSI: %s (value: %.3f)\n",
         simulating_psi ? "SIM" : "REAL", sim_psi_value);
 }
