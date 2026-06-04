@@ -73,31 +73,25 @@ void SensorSimulation::loop() {
     // ============================================================
     // pH Simulation (PID Feedback)
     // ============================================================
-    // PhPID_DIRECTION is REVERSE:
-    //   When pH > setpoint: PID output high -> acid pump runs -> pH decreases
-    //   When pH < setpoint: PID output low/zero -> no acid -> pH stable
-    //   Model: dpH/dt = -KPH * PID_output * dt
     if (simulating_ph) {
         double phDelta = -SIM_KPH * last_ph_output * dt_seconds;
         sim_ph_value += phDelta;
-        // Clamp pH to valid range [0.0, 14.0]
         if (sim_ph_value < 0.0) sim_ph_value = 0.0;
         if (sim_ph_value > 14.0) sim_ph_value = 14.0;
+        Debug.print(DBG_INFO, "[Sim] pH: %.3f (PID: %.0f, dt: %.3fs, delta: %.6f)",
+            sim_ph_value, last_ph_output, dt_seconds, phDelta);
     }
     
     // ============================================================
     // ORP Simulation (PID Feedback)
     // ============================================================
-    // OrpPID_DIRECTION is DIRECT:
-    //   When ORP < setpoint: PID output high -> chlorine pump runs -> ORP increases
-    //   When ORP > setpoint: PID output low/zero -> no chlorine -> ORP stable
-    //   Model: dORP/dt = KORP * PID_output * dt
     if (simulating_orp) {
         double orpDelta = SIM_KORP * last_orp_output * dt_seconds;
         sim_orp_value += orpDelta;
-        // Clamp ORP to valid range [0, 1000] mV
         if (sim_orp_value < 0.0) sim_orp_value = 0.0;
         if (sim_orp_value > 1000.0) sim_orp_value = 1000.0;
+        Debug.print(DBG_INFO, "[Sim] ORP: %.1f (PID: %.0f, dt: %.3fs, delta: %.3f)",
+            sim_orp_value, last_orp_output, dt_seconds, orpDelta);
     }
 }
 

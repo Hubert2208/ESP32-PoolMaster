@@ -40,14 +40,12 @@ public:
     static const uint8_t SENSOR_POOL_LEVEL = 5;
 
     // Default simulation rate constants
-    // KPH:  pH change per ms of PID output per second
-    //   At 100% output over 1h (3,600,000 ms): 0.0000028 * 3,600,000 = ~0.10 pH
-    //   Suitable for a ~50m3 pool with 1.5 L/h acid pump
-    static constexpr double SIM_KPH  = 0.0000028;
-    // KORP: ORP change per ms of PID output per second
-    //   At 100% output over 1h (3,600,000 ms): 0.00139 * 3,600,000 = ~50 mV
-    //   Suitable for a ~50m3 pool with 1.5 L/h chlorine pump
-    static constexpr double SIM_KORP = 0.00139;
+    // At 100% PID output:
+    //   SIM_KPH=0.0001  → pH changes ~0.5/h (visible in ~2 min)
+    //   SIM_KORP=0.05   → ORP changes ~225 mV/h (visible in ~2 min)
+    // Adjust these in Config.h or here to match your pool size & pump flow rate.
+    static constexpr double SIM_KPH  = 0.0001;
+    static constexpr double SIM_KORP = 0.05;
 
     SensorSimulation();
     
