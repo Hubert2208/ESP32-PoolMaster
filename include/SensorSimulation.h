@@ -12,6 +12,11 @@
  *   - ORP: ORP sensor (analog via ADS1115)
  *   - PSI: Pressure sensor (analog via ADS1115)
  * 
+ * PID Feedback:
+ *   When simulation is active, the PID output drives the simulated
+ *   sensor values. The acid pump decreases pH, the chlorine pump
+ *   increases ORP. Rates are configurable via SIM_KPH and SIM_KORP.
+ * 
  * Usage:
  *   1. Set SIMU_* flags in Config.h to enable simulation for specific sensors
  *   2. Optionally set SIMU_*_VALUE for custom initial values
@@ -34,13 +39,31 @@ public:
     static const uint8_t SENSOR_PH_LEVEL = 4;
     static const uint8_t SENSOR_POOL_LEVEL = 5;
 
+    // Default simulation rate constants
+    // KPH:  pH change per ms of PID output per second
+    //   At 100% output over 1h (3,600,000 ms): 0.0000028 * 3,600,000 = ~0.10 pH
+    //   Suitable for a ~50m³ pool with 1.5 L/h acid pump
+    static constexpr double SIM_KPH  = 0.0000028;
+    // KORP: ORP change per ms of PID output per second
+    //   At 100% output over 1h (3,600,000 ms): 0.00139 * 3,600,000 = ~50 mV
+    //   Suitable for a ~50m³ pool with 1.5 L/h chlorine pump
+    static constexpr double SIM_KORP = 0.00139;
+
     SensorSimulation();
     
     // Initialize simulation system
     void begin();
     
-    // Update simulation values (called periodically)
+    // Update simulation values (called periodically in AnalogPoll)
+    // Computes new pH/ORP from PID outputs and returns simulated values
     void loop();
+    
+    // ============================================================
+    // PID Feedback Interface
+    // ============================================================
+    // Called by AnalogPoll to pass current PID outputs to the simulation.
+    // The simulation uses these to drive the simulated sensor values.
+    void setPIDOutputs(double phOutput, double orpOutput);
     
     // ============================================================
     // Digital Input Simulation (CHL_LEVEL, PH_LEVEL, POOL_LEVEL)
@@ -88,6 +111,10 @@ private:
     bool sim_chl_level;
     bool sim_ph_level;
     bool sim_pool_level;
+    
+    // PID feedback state
+    double last_ph_output;
+    double last_orp_output;
     
     // Simulation parameters
     unsigned long last_update;
