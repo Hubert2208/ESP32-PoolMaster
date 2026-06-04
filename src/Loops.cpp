@@ -200,7 +200,7 @@ void AnalogPoll(void *pvParameters)
 
 #ifdef KC868_A8
         // Override with simulated values when simulation is active
-        // This must happen after calibration but before the SIMU PID blocks
+        // This must happen after calibration
         double simPH = SimSensor.getSimulatedValue(SimSensor.SENSOR_PH);
         if (!isnan(simPH)) PMData.PhValue = simPH;
         double simORP = SimSensor.getSimulatedValue(SimSensor.SENSOR_ORP);
@@ -209,45 +209,7 @@ void AnalogPoll(void *pvParameters)
         if (!isnan(simPSI)) PMData.PSIValue = simPSI;
 #endif
 
-#ifdef SIMU
-        if(!init_simu){
-            if(newpHOutput) {
-                pHTab[iw] = PMData.PhPIDOutput;
-                pHCumul = pHTab[0]+pHTab[1]+pHTab[2];
-                iw++;
-                iw %= 3;
-            }
-            PMData.PhValue = pHLastValue + pHCumul/4500000.*(double)((millis()-pHLastTime)/3600000.);
-            pHLastValue = PMData.PhValue;
-            pHLastTime = millis();
-        } else {
-            init_simu = false;
-            pHLastTime = millis();
-            pHLastValue = 7.0;
-            PMData.PhValue = pHLastValue;
-            PMData.OrpValue = OrpLastValue;
-            OrpLastTime = millis();
-            OrpLastValue = 730.0;
-            for(uint8_t i=0;i<3;i++) {
-                pHTab[i] = 0.;
-                ChlTab[i] = 0.;
-            }  
-        }  
-#endif
 
-#ifdef SIMU
-        if(!init_simu){
-            if(newChlOutput) {
-            ChlTab[jw] = PMData.OrpPIDOutput;
-            ChlCumul = ChlTab[0]+ChlTab[1]+ChlTab[2];
-            jw++;
-            jw %= 3;
-            }    
-            PMData.OrpValue = OrpLastValue + ChlCumul/36000.*(double)((millis()-OrpLastTime)/3600000.);
-            OrpLastValue = PMData.OrpValue;
-            OrpLastTime = millis();    
-        } 
-#endif
 
         Debug.print(DBG_DEBUG,"pH: %5.0f - %4.2f - ORP: %5.0f - %3.0fmV - PSI: %5.0f - %4.2fBar\r",
             ph_sensor_value,PMData.PhValue,orp_sensor_value,PMData.OrpValue,psi_sensor_value,PMData.PSIValue);
@@ -378,13 +340,7 @@ void pHRegulation(void *pvParameters)
             Debug.print(DBG_INFO,"Ph  regulation: %10.2f, %13.9f, %13.9f, %17.9f",PMData.PhPIDOutput,PMData.PhValue,PMData.Ph_SetPoint,PMConfig.get<double>(PH_KP));
             if(PMData.PhPIDOutput < (double)30000.) PMData.PhPIDOutput = 0.;
             Debug.print(DBG_INFO,"Ph  regulation: %10.2f",PMData.PhPIDOutput);
-        #ifdef SIMU
-            newpHOutput = true;
-        #endif            
-          }
-        #ifdef SIMU
-          else newpHOutput = false;
-        #endif    
+          }    
           /************************************************
            turn the Acid pump on/off based on pid output
           ************************************************/
@@ -456,13 +412,7 @@ void OrpRegulation(void *pvParameters)
           Debug.print(DBG_INFO,"ORP regulation: %10.2f, %13.9f, %12.9f, %17.9f",PMData.OrpPIDOutput,PMData.OrpValue,PMData.Orp_SetPoint,PMConfig.get<double>(ORP_KP));
           if(PMData.OrpPIDOutput < (double)30000.) PMData.OrpPIDOutput = 0.;    
             Debug.print(DBG_INFO,"Orp regulation: %10.2f",PMData.OrpPIDOutput);
-      #ifdef SIMU
-            newChlOutput = true;
-      #endif      
-          }
-      #ifdef SIMU
-          else newChlOutput = false;
-      #endif    
+          }    
         /************************************************
          turn the Chl pump on/off based on pid output
         ************************************************/
