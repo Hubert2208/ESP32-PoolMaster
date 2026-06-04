@@ -40,7 +40,7 @@ void unlockI2C();
 //Update loop for ADS1115 measurements
 // Some explanations: The sampling rate is set to 16sps in order to be sure that 
 // every 125ms (which is the period of the task) there is a sample available. As it takes 3ms to
-// update and restart the ADC, the whole loop takes a minimum of 3 + 1/SPS ms. If SPS was set to 
+// update and restart the ADC, the whole loop takes a minimum of 3 + 1/SPS ms. If SPS was set to
 // 8sps, that means 128ms instead of 125ms. With 16sps, we have 3 + 62.5 < 125ms which is OK.
 // With those settings, we get a value for each channel roughly every second: 9 values asked 
 // (3 per channel), with height values retrieved per second -> 0,89 value per second. The value
@@ -103,7 +103,9 @@ void AnalogPoll(void *pvParameters)
       PMData.OrpValue = (samples_Orp.getAverage(5)*0.1875/1000.)*PMConfig.get<double>(ORPCALIBCOEFFS0) + PMConfig.get<double>(ORPCALIBCOEFFS1);
 
 #ifdef KC868_A8
-      // Override with simulated values when simulation is active
+      // Update PID feedback simulation and override with simulated values
+      SimSensor.loop();  // Compute new simulated values from PID outputs
+      SimSensor.setPIDOutputs(PMData.PhPIDOutput, PMData.OrpPIDOutput);
       double simPH = SimSensor.getSimulatedValue(SimSensor.SENSOR_PH);
       if (!isnan(simPH)) PMData.PhValue = simPH;
       double simORP = SimSensor.getSimulatedValue(SimSensor.SENSOR_ORP);
@@ -118,7 +120,7 @@ void AnalogPoll(void *pvParameters)
 
     if(adc_int.ready()){
       psi_sensor_value = adc_int.readFilter(0) ;    // psi sensor current value
-      adc_int.start();
+      adc_int.start();  
 
       //PSI (water pressure)
       samples_PSI.add(psi_sensor_value);        // compute average of PSI from last 5 measurements
@@ -199,8 +201,9 @@ void AnalogPoll(void *pvParameters)
         PMData.PSIValue = (PMData.PSIValue < 0)? 0 : PMData.PSIValue;
 
 #ifdef KC868_A8
-        // Override with simulated values when simulation is active
-        // This must happen after calibration but before the SIMU PID blocks
+        // Update PID feedback simulation and override with simulated values
+        SimSensor.loop();  // Compute new simulated values from PID outputs
+        SimSensor.setPIDOutputs(PMData.PhPIDOutput, PMData.OrpPIDOutput);
         double simPH = SimSensor.getSimulatedValue(SimSensor.SENSOR_PH);
         if (!isnan(simPH)) PMData.PhValue = simPH;
         double simORP = SimSensor.getSimulatedValue(SimSensor.SENSOR_ORP);
@@ -265,7 +268,7 @@ void AnalogPoll(void *pvParameters)
 
     stack_mon(hwm);
     vTaskDelayUntil(&ticktime,period);
-  }  
+  }
 }
 
 #endif //EXT_ADS1115
@@ -278,7 +281,7 @@ void StatusLights(void *pvParameters)
 
   while (!startTasks) ;
   vTaskDelay(DT7);                                // Scheduling offset 
-
+ 
   TickType_t period = PT7;  
   TickType_t ticktime = xTaskGetTickCount(); 
   static UBaseType_t hwm = 0;
@@ -582,39 +585,4 @@ void getTemp(void *pvParameters)
   
   for(;;)
   {        
-    #ifdef CHRONO
-    td = millis();
-    #endif 
-
-    double temp = sensors_W.getTempC(DS18B20_W);
-    if (temp == NAN || temp == -127) {
-      Debug.print(DBG_WARNING,"Error getting Water temperature");
-    }  else PMData.WaterTemp = temp;
-    samples_WTemp.add(PMData.WaterTemp);
-    PMData.WaterTemp = samples_WTemp.getAverage(5);
-    Debug.print(DBG_VERBOSE,"DS18B20_W: %6.2f C",PMData.WaterTemp);
-
-    temp = sensors_A.getTempC(DS18B20_A);
-    if (temp == NAN || temp == -127) {
-      Debug.print(DBG_WARNING,"Error getting Air temperature");
-    }  else PMData.AirTemp = temp;
-    samples_ATemp.add(PMData.AirTemp);
-    PMData.AirTemp = samples_ATemp.getAverage(5);
-    Debug.print(DBG_VERBOSE,"DS18B20_A: %6.2f C",PMData.AirTemp);
-
-    sensors_W.requestTemperatures();
-    sensors_A.requestTemperatures();
-
-    #ifdef CHRONO
-    t_act = millis() - td;
-    if(t_act > t_max) t_max = t_act;
-    if(t_act < t_min) t_min = t_act;
-    t_mean += (t_act - t_mean)/n;
-    ++n;
-    Debug.print(DBG_INFO,"[getTemp] td: %d t_act: %d t_min: %d t_max: %d t_mean: %4.1f",td,t_act,t_min,t_max,t_mean);
-    #endif
-
-    stack_mon(hwm);
-    vTaskDelayUntil(&ticktime,period);
-  } 
-}
+    #if
