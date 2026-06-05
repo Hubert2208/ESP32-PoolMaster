@@ -12,6 +12,7 @@
  * - loop() adjusts simulated values based on pump runtime
  * - SIM_KPH controls pH change rate (negative = pH drops when pump runs)
  * - SIM_KORP controls ORP change rate (positive = ORP rises when pump runs)
+ * - When pump is NOT running, values drift back to natural baseline
  */
 
 #include "SensorSimulation.h"
@@ -85,9 +86,9 @@ void SensorSimulation::loop() {
     // Update simulation feedback (adjust values based on pump activity)
     updateSimulationFeedback();
     
-    // Periodic status output (every 30 seconds)
+    // Periodic status output (every 60 seconds)
     static unsigned long last_status = 0;
-    if (now - last_status > 30000) {
+    if (now - last_status > 60000) {
         last_status = now;
         if (simulating_ph || simulating_orp) {
             printStatus();
@@ -175,7 +176,7 @@ void SensorSimulation::setPIDOutputs(double phOutput, double orpOutput, double t
 }
 
 // ============================================================
-// Feedback Calculation
+// Feedback Calculation with Drift
 // ============================================================
 
 void SensorSimulation::updateSimulationFeedback() {
@@ -192,11 +193,59 @@ void SensorSimulation::updateSimulationFeedback() {
     // ============================================================
     // pH Simulation Feedback
     // ============================================================
-    if (simulating_ph && ph_pump_active) {
-        // Acid pump is running -> pH decreases
-        // SIM_KPH is negative (e.g., -0.001), so we add it directly
-        double delta = SIM_KPH * dt;
-        sim_ph_value += delta;
+    if (simulating_ph) {
+        if (ph_pump_active) {
+            // ============================================================
+            // PUMP RUNNING: pH decreases (adding acid)
+            // SIM_KPH is negative (e.g., -0.001)
+            // ============================================================
+            double delta = SIM_KPH * dt;
+            sim_ph_value += delta;
+            
+            // Debug output (every 10 seconds when pump is active)
+            static unsigned long last_ph_debug = 0;
+            if (now - last_ph_debug > 10000) {
+                last_ph_debug = now;
+                Serial.printf("[SensorSim] pH: %.4f (pump ON, Δ%.4f over %.1fs)\n", 
+                              sim_ph_value, delta, dt);
+            }
+        } else {
+            // ============================================================
+            // PUMP OFF: pH drifts back to natural baseline
+            // Natural pH is SIMU_PH_VALUE (e.g., 7.2) due to CO2 outgassing
+            // ============================================================
+            double natural_ph = SIMU_PH_VALUE;
+            double drift_rate = 0.0001;  // Slow drift back (0.006 pH/min)
+            
+            if (sim_ph_value < natural_ph) {
+                // pH is below natural -> drift up
+                double delta = drift_rate * dt;
+                sim_ph_value += delta;
+                if (sim_ph_value > natural_ph) sim_ph_value = natural_ph;
+                
+                // Debug output (every 30 seconds during drift)
+                static unsigned long last_ph_drift_debug = 0;
+                if (now - last_ph_drift_debug > 30000) {
+                    last_ph_drift_debug = now;
+                    Serial.printf("[SensorSim] pH: %.4f (drift UP Δ%.4f)\n", 
+                                  sim_ph_value, delta);
+                }
+            }
+            else if (sim_ph_value > natural_ph) {
+                // pH is above natural -> drift down
+                double delta = drift_rate * dt;
+                sim_ph_value -= delta;
+                if (sim_ph_value < natural_ph) sim_ph_value = natural_ph;
+                
+                // Debug output (every 30 seconds during drift)
+                static unsigned long last_ph_drift_debug2 = 0;
+                if (now - last_ph_drift_debug2 > 30000) {
+                    last_ph_drift_debug2 = now;
+                    Serial.printf("[SensorSim] pH: %.4f (drift DOWN Δ%.4f)\n", 
+                                  sim_ph_value, delta);
+                }
+            }
+        }
         
         // Clamp to realistic limits
         if (sim_ph_value < SIM_PH_MIN) {
@@ -207,24 +256,64 @@ void SensorSimulation::updateSimulationFeedback() {
             sim_ph_value = SIM_PH_MAX;
             Serial.println("[SensorSim] pH hit MAX limit");
         }
-        
-        // Debug output (every 10 seconds when pump is active)
-        static unsigned long last_ph_debug = 0;
-        if (now - last_ph_debug > 10000) {
-            last_ph_debug = now;
-            Serial.printf("[SensorSim] pH: %.4f (Δ%.4f over %.1fs)\n", 
-                          sim_ph_value, delta, dt);
-        }
     }
     
     // ============================================================
     // ORP Simulation Feedback
     // ============================================================
-    if (simulating_orp && orp_pump_active) {
-        // Chlorine pump is running -> ORP increases
-        // SIM_KORP is positive (e.g., 0.5), so we add it directly
-        double delta = SIM_KORP * dt;
-        sim_orp_value += delta;
+    if (simulating_orp) {
+        if (orp_pump_active) {
+            // ============================================================
+            // PUMP RUNNING: ORP increases (adding chlorine)
+            // SIM_KORP is positive (e.g., 0.5)
+            // ============================================================
+            double delta = SIM_KORP * dt;
+            sim_orp_value += delta;
+            
+            // Debug output (every 10 seconds when pump is active)
+            static unsigned long last_orp_debug = 0;
+            if (now - last_orp_debug > 10000) {
+                last_orp_debug = now;
+                Serial.printf("[SensorSim] ORP: %.2f (pump ON, Δ%.2f over %.1fs)\n", 
+                              sim_orp_value, delta, dt);
+            }
+        } else {
+            // ============================================================
+            // PUMP OFF: ORP drifts back to natural baseline
+            // Natural ORP is SIMU_ORP_VALUE (e.g., 720) due to chlorine decay
+            // ============================================================
+            double natural_orp = SIMU_ORP_VALUE;
+            double drift_rate = 0.05;  // Slow drift back (3 ORP/min)
+            
+            if (sim_orp_value > natural_orp) {
+                // ORP is above natural -> drift down
+                double delta = drift_rate * dt;
+                sim_orp_value -= delta;
+                if (sim_orp_value < natural_orp) sim_orp_value = natural_orp;
+                
+                // Debug output (every 30 seconds during drift)
+                static unsigned long last_orp_drift_debug = 0;
+                if (now - last_orp_drift_debug > 30000) {
+                    last_orp_drift_debug = now;
+                    Serial.printf("[SensorSim] ORP: %.2f (drift DOWN Δ%.2f)\n", 
+                                  sim_orp_value, delta);
+                }
+            }
+            else if (sim_orp_value < natural_orp) {
+                // ORP is below natural -> drift up
+                double delta = drift_rate * dt;
+                sim_orp_value += delta;
+                if (sim_orp_value > natural_orp) sim_orp_value = natural_orp;
+                
+                // Debug output (every 30 seconds during drift)
+                static unsigned long last_orp_drift_debug2 = 0;
+                if (now - last_orp_drift_debug2 > 30000) {
+                    last_orp_drift_debug2 = now;
+                    Serial.printf("[SensorSim] ORP: %.2f (drift UP Δ%.2f)\n", 
+                                  sim_orp_value, delta);
+                }
+            }
+        }
         
         // Clamp to realistic limits
         if (sim_orp_value < SIM_ORP_MIN) {
@@ -234,14 +323,6 @@ void SensorSimulation::updateSimulationFeedback() {
         if (sim_orp_value > SIM_ORP_MAX) {
             sim_orp_value = SIM_ORP_MAX;
             Serial.println("[SensorSim] ORP hit MAX limit");
-        }
-        
-        // Debug output (every 10 seconds when pump is active)
-        static unsigned long last_orp_debug = 0;
-        if (now - last_orp_debug > 10000) {
-            last_orp_debug = now;
-            Serial.printf("[SensorSim] ORP: %.2f (Δ%.2f over %.1fs)\n", 
-                          sim_orp_value, delta, dt);
         }
     }
 }
@@ -304,15 +385,14 @@ void SensorSimulation::printStatus() {
     Serial.printf("  POOL_LEVEL: %s (value: %s)\n",
         simulating_pool_level ? "SIM" : "REAL",
         sim_pool_level ? "HIGH" : "LOW");
-    Serial.printf("  pH: %s (value: %.4f)\n",
-        simulating_ph ? "SIM" : "REAL", sim_ph_value);
-    Serial.printf("  ORP: %s (value: %.2f)\n",
-        simulating_orp ? "SIM" : "REAL", sim_orp_value);
+    Serial.printf("  pH: %s (value: %.4f) [%s]\n",
+        simulating_ph ? "SIM" : "REAL", sim_ph_value,
+        ph_pump_active ? "PUMP ON" : "PUMP OFF");
+    Serial.printf("  ORP: %s (value: %.2f) [%s]\n",
+        simulating_orp ? "SIM" : "REAL", sim_orp_value,
+        orp_pump_active ? "PUMP ON" : "PUMP OFF");
     Serial.printf("  PSI: %s (value: %.3f)\n",
         simulating_psi ? "SIM" : "REAL", sim_psi_value);
-    Serial.printf("  Pump State: pH=%s, ORP=%s\n",
-        ph_pump_active ? "RUNNING" : "STOPPED",
-        orp_pump_active ? "RUNNING" : "STOPPED");
     Serial.printf("  Pump Runtime: pH=%.1fs, ORP=%.1fs\n",
         ph_pump_total_seconds, orp_pump_total_seconds);
 }
