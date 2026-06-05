@@ -17,6 +17,11 @@
  *   2. Optionally set SIMU_*_VALUE for custom initial values
  *   3. If a sensor is not physically connected, simulation auto-engages
  *   4. Simulation does not affect real sensor logic when disabled
+ * 
+ * Feedback Loop:
+ *   When PID controllers compute outputs, call setPhPumpActive()/setOrpPumpActive()
+ *   to update the simulation. The loop() method will then adjust simulated values
+ *   based on pump runtime (SIM_KPH for pH, SIM_KORP for ORP).
  */
 
 #ifndef SENSOR_SIMULATION_H
@@ -57,6 +62,23 @@ public:
     double getSimulatedValue(uint8_t sensorType);
     
     // ============================================================
+    // PID Feedback Interface (for dynamic pH/ORP simulation)
+    // ============================================================
+    // Call these from pHRegulation() and OrpRegulation() after PID.Compute()
+    // to inform the simulation about pump activity.
+    
+    // Update pH pump state (called from pHRegulation)
+    // active = true when pump is ON (PhPIDOutput > threshold)
+    void setPhPumpActive(bool active);
+    
+    // Update ORP pump state (called from OrpRegulation)
+    // active = true when pump is ON (OrpPIDOutput > threshold)
+    void setOrpPumpActive(bool active);
+    
+    // Combined setter (alternative to individual calls)
+    void setPIDOutputs(double phOutput, double orpOutput, double threshold = 30000.0);
+    
+    // ============================================================
     // Manual Value Setters (for runtime adjustment)
     // ============================================================
     void setSimPH(double value);
@@ -71,6 +93,12 @@ public:
     // ============================================================
     bool isSimulating(uint8_t sensorType);
     void printStatus();
+    
+    // ============================================================
+    // Statistics (for debugging)
+    // ============================================================
+    double getPhPumpTotalSeconds() const { return ph_pump_total_seconds; }
+    double getOrpPumpTotalSeconds() const { return orp_pump_total_seconds; }
 
 private:
     // Simulation state
@@ -92,6 +120,22 @@ private:
     // Simulation parameters
     unsigned long last_update;
     unsigned long update_interval;
+    
+    // ============================================================
+    // PID Feedback State
+    // ============================================================
+    bool ph_pump_active;          // pH pump currently running?
+    bool orp_pump_active;         // ORP pump currently running?
+    unsigned long last_feedback_update;  // Last feedback calculation time
+    
+    // For tracking pump runtime
+    unsigned long ph_pump_start_time;    // When pump started
+    unsigned long orp_pump_start_time;   // When pump started
+    double ph_pump_total_seconds;        // Total runtime (for statistics)
+    double orp_pump_total_seconds;
+    
+    // Internal feedback calculation
+    void updateSimulationFeedback();
 };
 
 // Global instance
