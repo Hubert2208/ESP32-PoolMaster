@@ -67,20 +67,40 @@
 // ============================================================
 // These parameters control how simulated sensor values change
 // when the corresponding pump is active (PID feedback loop).
+//
+// Physics of a real pool:
+//   pH:  Acid pump ON  → pH DECREASES (SIM_KPH is negative)
+//        Pump OFF      → pH INCREASES naturally (CO2 outgassing)
+//   ORP: Chlorine pump ON → ORP INCREASES (SIM_KORP is positive)
+//        Pump OFF        → ORP DECREASES naturally (chlorine degradation)
 // ============================================================
 
 // pH Feedback: Amount pH changes per second when acid pump is running
 // Negative value: pH decreases when pump is ON (adding acid)
-// Example: 0.001 = pH drops 0.06 units per minute
+// Example: -0.001 = pH drops 0.06 units per minute
 #ifndef SIM_KPH
-  #define SIM_KPH           0.001   // pH units per second
+  #define SIM_KPH           -0.001  // pH units per second (negative = drops)
+#endif
+
+// pH Natural Drift: Amount pH increases per second when pump is OFF
+// Positive value: pH rises naturally (CO2 outgassing, alkalinity)
+// Should be slower than pump effect to allow PID control
+#ifndef SIM_KPH_NATURAL
+  #define SIM_KPH_NATURAL   0.0001  // pH units per second (positive = rises)
 #endif
 
 // ORP Feedback: Amount ORP changes per second when chlorine pump is running
 // Positive value: ORP increases when pump is ON (adding chlorine)
 // Example: 0.5 = ORP rises 30 units per minute
 #ifndef SIM_KORP
-  #define SIM_KORP          0.5     // ORP units per second
+  #define SIM_KORP          0.5     // ORP units per second (positive = rises)
+#endif
+
+// ORP Natural Drift: Amount ORP decreases per second when pump is OFF
+// Positive value: ORP falls naturally (chlorine degradation)
+// Should be slower than pump effect to allow PID control
+#ifndef SIM_KORP_NATURAL
+  #define SIM_KORP_NATURAL  0.05    // ORP units per second (positive = falls)
 #endif
 
 // Simulation limits (prevent values from going out of realistic range)
@@ -198,93 +218,3 @@
 
 // Task TimeOut before reboot
 #define WDT_TIMEOUT     10
-
-// Delay when instructed to reboot
-#define REBOOT_DELAY  10000
-
-// Server port
-//#define SERVER_PORT 8060
-
-//OTA port
-#define OTA_PORT    8063
-
-//12bits (0,06°C) temperature sensors resolution
-#define TEMPERATURE_RESOLUTION 12
-
-// Time to wait for Wifi to connect. If not connected resume startup without network connection
-#define WIFI_TIMEOUT  10000
-
-//MQTT stuff including local broker/server IP address, login and pwd
-//------------------------------------------------------------------
-
-//interval (in millisec) between MQTT publishement of measurement data
-// can be configured at runtime
-#define PUBLISHINTERVAL 30000
-
-#define CONFIG_NVS_NAME "MasterConfig" // NVS namespace for configuration storage
-
-// Default values if nothing better is recorded at runtime
-#define POOLTOPIC "Home/Pool/"
-#define MQTTID "PoolMaster"
-// ElegantOTA Config
-//#define ELEGANT_OTA
-
-#ifdef ELEGANT_OTA
-  //#define ELEGANT_OTA_AUTH
-  //#define ELEGANT_OTA_USERNAME  "username"
-  //#define ELEGANT_OTA_PASSWORD  "password"
-#endif
-// Robot pump timing
-#define ROBOT_DELAY 60     // Robot start delay after filtration in mn
-#define ROBOT_DURATION 90  // Robot cleaning duration
-
-#define SWG_MODE_ADJUST 0   // Adjust SWG production time according to the pool ORP
-#define SWG_MODE_FIXED 1    // Fixed time for SWG production (in hours)
-
-//Display timeout before blanking
-//-------------------------------
-//#define TFT_SLEEP 60000L  // Moved to Nextion Library
-
-// Loop tasks scheduling parameters
-//---------------------------------
-// T1: AnalogPoll
-// T2: PoolServer
-// T3: PoolMaster
-// T4: getTemp
-// T5: OrpRegulation
-// T6: pHRegulation
-// T7: StatusLights
-// T8: PublishMeasures
-// T9: PublishSettings 
-// T10: Nextion Screen Refresh On (/2 when screen on, /4 if menu page for faster refresh)
-// T11: Every 2 minutes, statistics recording, MQTT and NTP reconnects
-
-//Periods 
-// Task9 period is initialized with PUBLISHINTERVAL and can be changed dynamically
-#define PT1 125
-#define PT2 500
-#define PT3 500
-#define PT4 1000 / (1 << (12 - TEMPERATURE_RESOLUTION))
-#define PT5 1000
-#define PT6 1000
-#define PT7 3000
-#define PT8 30000 //Unused, stored as config parameter and can be modified at runtime
-#define PT9 1000
-#define PT10 1000
-#define PT11 120000 // Run once every 2 minutes
-
-
-//Start offsets to spread tasks along time
-// Task1 has no delay
-#define DT2 190/portTICK_PERIOD_MS
-#define DT3 310/portTICK_PERIOD_MS
-#define DT4 440/portTICK_PERIOD_MS
-#define DT5 560/portTICK_PERIOD_MS
-#define DT6 920/portTICK_PERIOD_MS
-#define DT7 100/portTICK_PERIOD_MS
-#define DT8 570/portTICK_PERIOD_MS
-#define DT9 940/portTICK_PERIOD_MS
-#define DT10 50/portTICK_PERIOD_MS
-#define DT11 2000/portTICK_PERIOD_MS
-
-//#define CHRONO                    // Activate tasks timings traces for profiling
