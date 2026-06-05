@@ -373,6 +373,15 @@ void setup()
   Wire.write((uint8_t)0xFF);
   Wire.endTransmission();
 
+#ifdef KC868_A8
+  // Wire is now initialized — explicitly turn all relays OFF.
+  // KC868.begin() ran before Wire.begin() so its I2C write never reached hardware.
+  for (uint8_t i = 0; i < 8; i++) {
+    KC868.setRelay(i, true);
+  }
+  Debug.print(DBG_INFO,"[KC868-A8] All relays set to OFF (boot reset)");
+#endif
+
   // Initialize PIDs
   PMData.PhPIDwStart  = millis();
   PMData.OrpPIDwStart  = millis();
