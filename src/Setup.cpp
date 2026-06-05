@@ -340,6 +340,16 @@ void setup()
   PoolDeviceManager.InitDevicesInterlock();
   PoolDeviceManager.Begin();
 
+#ifdef KC868_A8
+  // After PoolDeviceManager.Begin(), PIN::Begin() may have set relays to
+  // an incorrect state due to active_level inversion on KC868-A8 hardware.
+  // Explicitly turn ALL 8 relays OFF to ensure a safe default state.
+  for (uint8_t i = 0; i < 8; i++) {
+    KC868.setRelay(i, false);
+  }
+  Debug.print(DBG_INFO,"[KC868-A8] All relays set to OFF (boot reset)");
+#endif
+
   // Initialize watch-dog
   esp_task_wdt_init(WDT_TIMEOUT, true);
 
