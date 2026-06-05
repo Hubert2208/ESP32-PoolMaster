@@ -136,7 +136,8 @@ void AnalogPoll(void *pvParameters)
 #ifdef KC868_A8
     // ============================================================
     // UPDATE SIMULATION FEEDBACK
-    // Must be called periodically to adjust pH/ORP based on pump activity
+    // This is critical: must be called periodically to adjust 
+    // pH/ORP based on pump activity and drift logic
     // ============================================================
     SimSensor.loop();
 #endif
@@ -227,7 +228,8 @@ void AnalogPoll(void *pvParameters)
 #ifdef KC868_A8
     // ============================================================
     // UPDATE SIMULATION FEEDBACK
-    // Must be called periodically to adjust pH/ORP based on pump activity
+    // This is critical: must be called periodically to adjust 
+    // pH/ORP based on pump activity and drift logic
     // ============================================================
     SimSensor.loop();
 #endif
