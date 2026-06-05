@@ -3,6 +3,7 @@
 
 #ifdef KC868_A8
   #include "KC868A8_IO.h"
+  #include "../../../include/SensorSimulation.h"
 #endif
 
 //Constructor
@@ -109,6 +110,14 @@ void PIN::SetPinNumber(uint8_t _pin_number, uint8_t _pin_direction, bool _active
 bool PIN::IsActive()
 {
   if (pin_number != 0) {
+#ifdef KC868_A8
+    // Check simulation first: if simulation is active for this pin,
+    // use the simulated value instead of reading the physical pin.
+    int8_t simVal = SimSensor.getSimulatedInput(pin_number);
+    if (simVal >= 0) {
+        return (simVal == HIGH);  // Simulated value: HIGH = active
+    }
+#endif
     return (digitalRead(pin_number) == active_level);
   } else {
     return false;
