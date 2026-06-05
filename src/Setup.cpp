@@ -12,21 +12,7 @@
   #include "SensorSimulation.h"
 #endif
 
-#ifdef SIMU
-bool init_simu = true;
-double pHLastValue = 7.;
-unsigned long pHLastTime = 0;
-double OrpLastValue = 730.;
-unsigned long OrpLastTime = 0;
-double pHTab [3] {0.,0.,0.};
-double ChlTab [3] {0.,0.,0.};
-uint8_t iw = 0;
-uint8_t jw = 0;
-bool newpHOutput = false;
-bool newChlOutput = false;
-double pHCumul = 0.;
-double ChlCumul = 0.;
-#endif
+
 
 // Firmware revision
 String Firmw = FIRMW;

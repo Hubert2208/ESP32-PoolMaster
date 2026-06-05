@@ -253,7 +253,3 @@
 #define DT11 2000/portTICK_PERIOD_MS
 
 //#define CHRONO                    // Activate tasks timings traces for profiling
-//#define SIMU                      // Used to simulate pH/ORP sensors. Very simple simulation:
-                                    // the sensor value is computed from the output of the PID 
-                                    // loop to reach linearly the theorical value produced by this
-                                    // output after one hour
