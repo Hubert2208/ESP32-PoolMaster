@@ -32,6 +32,10 @@ class InputSensor : public PIN {
 
     bool IsEnabled() override;
 
+#ifdef KC868_A8
+    bool IsActive() override;
+#endif
+
     // Functions which does nothing for InputSensor
     // but needs to define it for derived class
     bool GetOperationMode(void);

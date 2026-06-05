@@ -1,6 +1,10 @@
 #include "Arduino.h"
 #include "InputSensor.h"
 
+#ifdef KC868_A8
+  #include "SensorSimulation.h"
+#endif
+
 bool InputSensor::getState() {
     return currentState;
 }
@@ -26,6 +30,18 @@ void InputSensor::loop() {
 bool InputSensor::IsEnabled() {
     return getState();
 }
+
+#ifdef KC868_A8
+// Override IsActive() to support sensor simulation on KC868-A8
+// When simulation is active, use the simulated value instead of the physical pin.
+bool InputSensor::IsActive() {
+    int8_t simVal = SimSensor.getSimulatedInput(GetPinNumber());
+    if (simVal >= 0) {
+        return (simVal == HIGH);  // Simulated value: HIGH = active
+    }
+    return PIN::IsActive();
+}
+#endif
 
 //Function overiden for derived class hierarchie but they do nothing
 void InputSensor::SetOperationMode(bool _operation_mode) {}
