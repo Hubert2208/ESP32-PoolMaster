@@ -62,6 +62,41 @@
 #define SIMU_PH_LEVEL_VALUE   1     // Default: HIGH (tank not empty)
 #define SIMU_POOL_LEVEL_VALUE 1     // Default: HIGH (pool level OK)
 
+// ============================================================
+// SIMULATION FEEDBACK PARAMETERS
+// ============================================================
+// These parameters control how simulated sensor values change
+// when the corresponding pump is active (PID feedback loop).
+// ============================================================
+
+// pH Feedback: Amount pH changes per second when acid pump is running
+// Negative value: pH decreases when pump is ON (adding acid)
+// Example: 0.001 = pH drops 0.06 units per minute
+#ifndef SIM_KPH
+  #define SIM_KPH           0.001   // pH units per second
+#endif
+
+// ORP Feedback: Amount ORP changes per second when chlorine pump is running
+// Positive value: ORP increases when pump is ON (adding chlorine)
+// Example: 0.5 = ORP rises 30 units per minute
+#ifndef SIM_KORP
+  #define SIM_KORP          0.5     // ORP units per second
+#endif
+
+// Simulation limits (prevent values from going out of realistic range)
+#ifndef SIM_PH_MIN
+  #define SIM_PH_MIN        6.0     // Minimum pH value
+#endif
+#ifndef SIM_PH_MAX
+  #define SIM_PH_MAX        8.5     // Maximum pH value
+#endif
+#ifndef SIM_ORP_MIN
+  #define SIM_ORP_MIN       600.0   // Minimum ORP value (mV)
+#endif
+#ifndef SIM_ORP_MAX
+  #define SIM_ORP_MAX       900.0   // Maximum ORP value (mV)
+#endif
+
 // If you need to force network parameters (configuration with no screen)
 #define FORCE_NETWORK_PARAMS
 #ifdef FORCE_NETWORK_PARAMS
