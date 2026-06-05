@@ -568,3 +568,31 @@ void getTemp(void *pvParameters)
     vTaskDelayUntil(&ticktime,period);
   } 
 }
+
+// ============================================================
+// Analog Sensor Simulation Loop (KC868-A8 only)
+// ============================================================
+// Runs every 60 seconds. Checks pump states and adjusts
+// simulated pH/ORP values accordingly.
+// Only active when SIMU_PH / SIMU_ORP is enabled in Config.h.
+// ============================================================
+#ifdef KC868_A8
+void AnalogSimLoop(void *pvParameters)
+{
+  while (!startTasks) ;
+  vTaskDelay(DT7);  // Scheduling offset
+
+  TickType_t period = pdMS_TO_TICKS(60000);  // 60 seconds
+  TickType_t ticktime = xTaskGetTickCount();
+  static UBaseType_t hwm = 0;
+
+  Debug.print(DBG_INFO, "[AnalogSim] Loop started (period: 60s)");
+
+  for(;;)
+  {
+    SimSensor.updateAnalogSimulation();
+    stack_mon(hwm);
+    vTaskDelayUntil(&ticktime,period);
+  }
+}
+#endif
