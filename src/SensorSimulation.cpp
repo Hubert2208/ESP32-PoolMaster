@@ -88,34 +88,41 @@ void SensorSimulation::loop() {
 // ============================================================
 void SensorSimulation::updateAnalogSimulation() {
 #ifdef KC868_A8
+    bool phPumpOn = PhPump.IsRunning();
+    bool chlPumpOn = ChlPump.IsRunning();
+
+    Debug.print(DBG_INFO, "[AnalogSim] PhPump: %s | ChlPump: %s",
+        phPumpOn ? "ON" : "OFF",
+        chlPumpOn ? "ON" : "OFF");
+
     // --- pH Simulation ---
     if (simulating_ph) {
-        if (PhPump.IsRunning()) {
-            // Acid pump active: pH decreases
+        double oldPH = sim_ph_value;
+        if (phPumpOn) {
             sim_ph_value -= SIM_PH_ACTIVE_RATE;
-            Debug.print(DBG_INFO, "[Sim] pH decreasing (pump ON): %.3f", sim_ph_value);
+            Debug.print(DBG_INFO, "[Sim] pH: %.3f -> %.3f (pump ON, -%.3f)",
+                oldPH, sim_ph_value, SIM_PH_ACTIVE_RATE);
         } else {
-            // Acid pump off: pH drifts up naturally
             sim_ph_value += SIM_PH_DRIFT_RATE;
-            Debug.print(DBG_VERBOSE, "[Sim] pH drifting up (pump OFF): %.3f", sim_ph_value);
+            Debug.print(DBG_INFO, "[Sim] pH: %.3f -> %.3f (pump OFF, +%.3f)",
+                oldPH, sim_ph_value, SIM_PH_DRIFT_RATE);
         }
-        // Clamp to configured bounds
         if (sim_ph_value < SIM_PH_MIN) sim_ph_value = SIM_PH_MIN;
         if (sim_ph_value > SIM_PH_MAX) sim_ph_value = SIM_PH_MAX;
     }
 
     // --- ORP Simulation ---
     if (simulating_orp) {
-        if (ChlPump.IsRunning()) {
-            // Chlorine pump active: ORP increases
+        double oldORP = sim_orp_value;
+        if (chlPumpOn) {
             sim_orp_value += SIM_ORP_ACTIVE_RATE;
-            Debug.print(DBG_INFO, "[Sim] ORP increasing (pump ON): %.1f", sim_orp_value);
+            Debug.print(DBG_INFO, "[Sim] ORP: %.1f -> %.1f (pump ON, +%.1f)",
+                oldORP, sim_orp_value, SIM_ORP_ACTIVE_RATE);
         } else {
-            // Chlorine pump off: ORP drifts down naturally
             sim_orp_value -= SIM_ORP_DRIFT_RATE;
-            Debug.print(DBG_VERBOSE, "[Sim] ORP drifting down (pump OFF): %.1f", sim_orp_value);
+            Debug.print(DBG_INFO, "[Sim] ORP: %.1f -> %.1f (pump OFF, -%.1f)",
+                oldORP, sim_orp_value, SIM_ORP_DRIFT_RATE);
         }
-        // Clamp to configured bounds
         if (sim_orp_value < SIM_ORP_MIN) sim_orp_value = SIM_ORP_MIN;
         if (sim_orp_value > SIM_ORP_MAX) sim_orp_value = SIM_ORP_MAX;
     }

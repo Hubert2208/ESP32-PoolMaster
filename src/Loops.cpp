@@ -587,6 +587,10 @@ void AnalogSimLoop(void *pvParameters)
   static UBaseType_t hwm = 0;
 
   Debug.print(DBG_INFO, "[AnalogSim] Loop started (period: 60s)");
+  Debug.print(DBG_INFO, "[AnalogSim] pH rate: -%.3f/+%.3f per min (range: %.1f-%.1f)",
+      SIM_PH_ACTIVE_RATE, SIM_PH_DRIFT_RATE, SIM_PH_MIN, SIM_PH_MAX);
+  Debug.print(DBG_INFO, "[AnalogSim] ORP rate: +%.1f/-%.1f per min (range: %.0f-%.0f)",
+      SIM_ORP_ACTIVE_RATE, SIM_ORP_DRIFT_RATE, SIM_ORP_MIN, SIM_ORP_MAX);
 
   for(;;)
   {
