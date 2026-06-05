@@ -340,12 +340,19 @@ void pHRegulation(void *pvParameters)
             Debug.print(DBG_INFO,"Ph  regulation: %10.2f, %13.9f, %13.9f, %17.9f",PMData.PhPIDOutput,PMData.PhValue,PMData.Ph_SetPoint,PMConfig.get<double>(PH_KP));
             if(PMData.PhPIDOutput < (double)30000.) PMData.PhPIDOutput = 0.;
             Debug.print(DBG_INFO,"Ph  regulation: %10.2f",PMData.PhPIDOutput);
+            
+            // ============================================================
+            // FEEDBACK: Inform simulation about pump state for dynamic pH
+            // ============================================================
+            #ifdef KC868_A8
+              SimSensor.setPhPumpActive(PMData.PhPIDOutput > 30000.0);
+            #endif
           }    
           /************************************************
            turn the Acid pump on/off based on pid output
           ************************************************/
           unsigned long now = millis();
-          if (now - PMData.PhPIDwStart > PMConfig.get<unsigned long>(PHPIDWINDOWSIZE))
+          if (now - PMData.PhPIDwStart > PMConfig.get<double>(PHPIDWINDOWSIZE))
           {
             //time to shift the Relay Window
             PMData.PhPIDwStart += PMConfig.get<double>(PHPIDWINDOWSIZE);
@@ -359,6 +366,13 @@ void pHRegulation(void *pvParameters)
         PMData.Ph_RegOnOff = false;
         PMData.PhPIDOutput = 0.0;
         PhPump.Stop();
+        
+        // ============================================================
+        // FEEDBACK: Pump stopped - update simulation
+        // ============================================================
+        #ifdef KC868_A8
+          SimSensor.setPhPumpActive(false);
+        #endif
       } 
     }
 
@@ -412,6 +426,13 @@ void OrpRegulation(void *pvParameters)
           Debug.print(DBG_INFO,"ORP regulation: %10.2f, %13.9f, %12.9f, %17.9f",PMData.OrpPIDOutput,PMData.OrpValue,PMData.Orp_SetPoint,PMConfig.get<double>(ORP_KP));
           if(PMData.OrpPIDOutput < (double)30000.) PMData.OrpPIDOutput = 0.;    
             Debug.print(DBG_INFO,"Orp regulation: %10.2f",PMData.OrpPIDOutput);
+            
+            // ============================================================
+            // FEEDBACK: Inform simulation about pump state for dynamic ORP
+            // ============================================================
+            #ifdef KC868_A8
+              SimSensor.setOrpPumpActive(PMData.OrpPIDOutput > 30000.0);
+            #endif
           }    
         /************************************************
          turn the Chl pump on/off based on pid output
@@ -431,6 +452,13 @@ void OrpRegulation(void *pvParameters)
         PMData.Orp_RegOnOff = false;
         PMData.OrpPIDOutput = 0.0;
         ChlPump.Stop();
+        
+        // ============================================================
+        // FEEDBACK: Pump stopped - update simulation
+        // ============================================================
+        #ifdef KC868_A8
+          SimSensor.setOrpPumpActive(false);
+        #endif
       } 
     }
 
