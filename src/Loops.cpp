@@ -133,6 +133,14 @@ void AnalogPoll(void *pvParameters)
     }
     unlockI2C();
 
+#ifdef KC868_A8
+    // ============================================================
+    // UPDATE SIMULATION FEEDBACK
+    // Must be called periodically to adjust pH/ORP based on pump activity
+    // ============================================================
+    SimSensor.loop();
+#endif
+
     stack_mon(hwm);
     vTaskDelayUntil(&ticktime,period);
   }  
@@ -215,6 +223,14 @@ void AnalogPoll(void *pvParameters)
             ph_sensor_value,PMData.PhValue,orp_sensor_value,PMData.OrpValue,psi_sensor_value,PMData.PSIValue);
     }
     unlockI2C();
+
+#ifdef KC868_A8
+    // ============================================================
+    // UPDATE SIMULATION FEEDBACK
+    // Must be called periodically to adjust pH/ORP based on pump activity
+    // ============================================================
+    SimSensor.loop();
+#endif
 
     #ifdef CHRONO
     t_act = millis() - td;
