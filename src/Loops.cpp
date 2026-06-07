@@ -37,6 +37,17 @@ void stack_mon(UBaseType_t&);
 void lockI2C();
 void unlockI2C();
 
+// Helper: log pump start errors as decoded bitmask
+static void logPumpStartErrors(const char* pumpName, uint8_t errors) {
+    if (errors == 0) return; // no errors, pump started successfully
+    Debug.print(DBG_WARNING, "[%s] Start() errors: 0x%02X | UpTime:%d Tank:%d Interlock:%d Relay:%d",
+        pumpName, errors,
+        (errors >> 0) & 1,  // Bit 0: UpTimeError
+        (errors >> 1) & 1,  // Bit 1: TankLevel error
+        (errors >> 2) & 1,  // Bit 2: Interlock error
+        (errors >> 3) & 1); // Bit 3: Relay error
+}
+
 //Update loop for ADS1115 measurements
 // Some explanations: The sampling rate is set to 16sps in order to be sure that 
 // every 125ms (which is the period of the task) there is a sample available. As it takes 3ms to
@@ -335,7 +346,7 @@ void pHRegulation(void *pvParameters)
     if (PhPID.GetMode() == AUTOMATIC)
     {  
       if (FiltrationPump.IsRunning()) {
-  
+ 
           if(PhPID.Compute()){
             Debug.print(DBG_INFO,"Ph  regulation: %10.2f, %13.9f, %13.9f, %17.9f",PMData.PhPIDOutput,PMData.PhValue,PMData.Ph_SetPoint,PMConfig.get<double>(PH_KP));
             if(PMData.PhPIDOutput < (double)30000.) PMData.PhPIDOutput = 0.;
@@ -352,8 +363,10 @@ void pHRegulation(void *pvParameters)
             }
           if ((unsigned long)PMData.PhPIDOutput <= now - PMData.PhPIDwStart)
             PhPump.Stop();
-          else
-            PhPump.Start();   
+          else {
+            uint8_t err = PhPump.Start();
+            logPumpStartErrors("PhPump", err);
+          }
       } else {
         PhPID.SetMode(MANUAL);
         PMData.Ph_RegOnOff = false;
@@ -424,8 +437,10 @@ void OrpRegulation(void *pvParameters)
         }
         if ((unsigned long)PMData.OrpPIDOutput <= now - PMData.OrpPIDwStart)
           ChlPump.Stop();
-        else
-          ChlPump.Start();
+        else {
+          uint8_t err = ChlPump.Start();
+          logPumpStartErrors("ChlPump", err);
+        }
       } else {
         OrpPID.SetMode(MANUAL);
         PMData.Orp_RegOnOff = false;
@@ -575,22 +590,17 @@ void getTemp(void *pvParameters)
 // Runs every 60 seconds. Checks pump states and adjusts
 // simulated pH/ORP values accordingly.
 // Only active when SIMU_PH / SIMU_ORP is enabled in Config.h.
-// ============================================================
-#ifdef KC868_A8
+// ==========================================================
 void AnalogSimLoop(void *pvParameters)
 {
   while (!startTasks) ;
-  vTaskDelay(DT7);  // Scheduling offset
-
+  vTaskDelay(DT7);
+  
   TickType_t period = pdMS_TO_TICKS(60000);  // 60 seconds
   TickType_t ticktime = xTaskGetTickCount();
   static UBaseType_t hwm = 0;
 
   Debug.print(DBG_INFO, "[AnalogSim] Loop started (period: 60s)");
-  Debug.print(DBG_INFO, "[AnalogSim] pH rate: -%.3f/+%.3f per min (range: %.1f-%.1f)",
-      SIM_PH_ACTIVE_RATE, SIM_PH_DRIFT_RATE, SIM_PH_MIN, SIM_PH_MAX);
-  Debug.print(DBG_INFO, "[AnalogSim] ORP rate: +%.1f/-%.1f per min (range: %.0f-%.0f)",
-      SIM_ORP_ACTIVE_RATE, SIM_ORP_DRIFT_RATE, SIM_ORP_MIN, SIM_ORP_MAX);
 
   for(;;)
   {
@@ -599,4 +609,3 @@ void AnalogSimLoop(void *pvParameters)
     vTaskDelayUntil(&ticktime,period);
   }
 }
-#endif
