@@ -201,10 +201,11 @@ void Pump::SetMinUpTime(unsigned long _minuptime)
 //This is typically called every day at midnight
 void Pump::ResetUpTime()
 {
-  StartTime = LastLoopMillis = 0;
+  StartTime = 0;
   StopTime = 0;
   UpTime = 0;
   CurrMaxUpTime = MaxUpTime;
+  LastLoopMillis = millis();  // FIX: preserve millis() reference to avoid jump in UpTime calculation
 }
 
 //Clear "UpTimeError" error flag and allow the pump to run for an extra MaxUpTime
