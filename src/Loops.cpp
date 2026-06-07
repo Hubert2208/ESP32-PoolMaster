@@ -356,14 +356,20 @@ void pHRegulation(void *pvParameters)
            turn the Acid pump on/off based on pid output
           ************************************************/
           unsigned long now = millis();
+          Debug.print(DBG_INFO,"[pHReg] now=%lu wStart=%lu wSize=%lu output=%lu",
+            now, PMData.PhPIDwStart, PMConfig.get<unsigned long>(PHPIDWINDOWSIZE),
+            (unsigned long)PMData.PhPIDOutput);
           if (now - PMData.PhPIDwStart > PMConfig.get<unsigned long>(PHPIDWINDOWSIZE))
           {
             //time to shift the Relay Window
             PMData.PhPIDwStart += PMConfig.get<double>(PHPIDWINDOWSIZE);
+            Debug.print(DBG_INFO,"[pHReg] Window shifted to %lu", PMData.PhPIDwStart);
             }
-          if ((unsigned long)PMData.PhPIDOutput <= now - PMData.PhPIDwStart)
+          if ((unsigned long)PMData.PhPIDOutput <= now - PMData.PhPIDwStart) {
+            Debug.print(DBG_INFO,"[pHReg] STOP (output <= elapsed)");
             PhPump.Stop();
-          else {
+          } else {
+            Debug.print(DBG_INFO,"[pHReg] START (output > elapsed)");
             uint8_t err = PhPump.Start();
             logPumpStartErrors("PhPump", err);
           }
@@ -375,11 +381,7 @@ void pHRegulation(void *pvParameters)
       } 
     }
 
- unsigned long PhPIDwStart, OrpPIDwStart;
-    double AirTemp;
-    double PhPIDOutput, OrpPIDOutput;
-
-    #ifdef CHRONO
+ #ifdef CHRONO
     t_act = millis() - td;
     if(t_act > t_max) t_max = t_act;
     if(t_act < t_min) t_min = t_act;
@@ -430,14 +432,20 @@ void OrpRegulation(void *pvParameters)
          turn the Chl pump on/off based on pid output
         ************************************************/
         unsigned long now = millis();
+        Debug.print(DBG_INFO,"[OrpReg] now=%lu wStart=%lu wSize=%lu output=%lu",
+          now, PMData.OrpPIDwStart, PMConfig.get<unsigned long>(ORPPIDWINDOWSIZE),
+          (unsigned long)PMData.OrpPIDOutput);
         if (now - PMData.OrpPIDwStart > PMConfig.get<double>(ORPPIDWINDOWSIZE))
         {
           //time to shift the Relay Window
           PMData.OrpPIDwStart += PMConfig.get<double>(ORPPIDWINDOWSIZE);
+          Debug.print(DBG_INFO,"[OrpReg] Window shifted to %lu", PMData.OrpPIDwStart);
         }
-        if ((unsigned long)PMData.OrpPIDOutput <= now - PMData.OrpPIDwStart)
+        if ((unsigned long)PMData.OrpPIDOutput <= now - PMData.OrpPIDwStart) {
+          Debug.print(DBG_INFO,"[OrpReg] STOP (output <= elapsed)");
           ChlPump.Stop();
-        else {
+        } else {
+          Debug.print(DBG_INFO,"[OrpReg] START (output > elapsed)");
           uint8_t err = ChlPump.Start();
           logPumpStartErrors("ChlPump", err);
         }
@@ -597,7 +605,7 @@ void AnalogSimLoop(void *pvParameters)
   vTaskDelay(DT7);
   
   TickType_t period = pdMS_TO_TICKS(60000);  // 60 seconds
-  TickType_t ticktime = xTaskGetTickCount();
+  TickType_t ticktime = xTaskGetTickCount(); 
   static UBaseType_t hwm = 0;
 
   Debug.print(DBG_INFO, "[AnalogSim] Loop started (period: 60s)");
