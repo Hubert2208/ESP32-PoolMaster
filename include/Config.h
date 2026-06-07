@@ -73,14 +73,14 @@
 // ============================================================
 
 // pH simulation
-#define SIM_PH_ACTIVE_RATE    0.02  // pH decrease per minute when acid pump is ON
-#define SIM_PH_DRIFT_RATE     0.005 // pH increase per minute when acid pump is OFF (natural)
+#define SIM_PH_ACTIVE_RATE    0.01  // pH decrease per minute when acid pump is ON
+#define SIM_PH_DRIFT_RATE     0.002 // pH increase per minute when acid pump is OFF (natural)
 #define SIM_PH_MIN            6.0   // Minimum simulated pH
 #define SIM_PH_MAX            8.5   // Maximum simulated pH
 
 // ORP simulation
-#define SIM_ORP_ACTIVE_RATE   5.0   // ORP increase per minute when chlorine pump is ON (mV)
-#define SIM_ORP_DRIFT_RATE    2.0   // ORP decrease per minute when chlorine pump is OFF (mV)
+#define SIM_ORP_ACTIVE_RATE   2.0   // ORP increase per minute when chlorine pump is ON (mV)
+#define SIM_ORP_DRIFT_RATE    1.0   // ORP decrease per minute when chlorine pump is OFF (mV)
 #define SIM_ORP_MIN           400.0 // Minimum simulated ORP (mV)
 #define SIM_ORP_MAX           900.0 // Maximum simulated ORP (mV)
 
