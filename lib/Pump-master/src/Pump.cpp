@@ -30,7 +30,7 @@ void Pump::loop()
 
   if(IsRunning())
   {
-    if (loopHandler) loopHandler(); // Appel du handler a chaque boucle
+    if (loopHandler) loopHandler(); // Appel du handler à chaque boucle
 
     UpTime += millis() - LastLoopMillis;
     LastLoopMillis = millis();
@@ -69,8 +69,8 @@ u_int8_t Pump::Start(bool _resetUpTime)
   bitMaskErrors |= (!CheckInterlock() & 1) << 2; // Bit 2: Interlock error
 
 #ifdef KC868_A8
-  Serial.printf("[Pump::Start] pin=%d isRunning=%d UpTimeError=%d TankLevel=%d Interlock=%d bits=0x%02X\r\n",
-    this->GetPinId(), IsRunning(), UpTimeError, TankLevel(), CheckInterlock(), bitMaskErrors);
+  Serial.printf("[Pump::Start] pin=%d isRunning=%d UpTimeErr=%d Tank=%d Interlock=%d bits=0x%02X\r\n",
+    GetPinNumber(), IsRunning(), UpTimeError, TankLevel(), CheckInterlock(), bitMaskErrors);
 #endif
 
   if((!IsRunning()) && !UpTimeError && TankLevel() && CheckInterlock())
@@ -79,13 +79,13 @@ u_int8_t Pump::Start(bool _resetUpTime)
       bitMaskErrors |= (1 << 3); // Bit 3: Relay error
 #ifdef KC868_A8
       Serial.printf("[Pump::Start] pin=%d Relay Enable FAILED! bits=0x%02X\r\n",
-        this->GetPinId(), bitMaskErrors);
+        GetPinNumber(), bitMaskErrors);
 #endif
       return bitMaskErrors;
     } else {
       LastLoopMillis = StartTime = millis(); 
 #ifdef KC868_A8
-      Serial.printf("[Pump::Start] pin=%d Pump STARTED OK\r\n", this->GetPinId());
+      Serial.printf("[Pump::Start] pin=%d Pump STARTED OK\r\n", GetPinNumber());
 #endif
     }
   }
