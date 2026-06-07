@@ -49,20 +49,6 @@ static void logPumpStartErrors(const char* pumpName, uint8_t errors) {
 }
 
 //Update loop for ADS1115 measurements
-// Some explanations: The sampling rate is set to 16sps in order to be sure that 
-// every 125ms (which is the period of the task) there is a sample available. As it takes 3ms to
-// update and restart the ADC, the whole loop takes a minimum of 3 + 1/SPS ms. If SPS was set to 
-// 8sps, that means 128ms instead of 125ms. With 16sps, we have 3 + 62.5 < 125ms which is OK.
-// With those settings, we get a value for each channel roughly every second: 9 values asked 
-// (3 per channel), with height values retrieved per second -> 0,89 value per second. The value
-// returned for each channel is the median of the three samples. Then, among the last 11
-// samples returned, we take the 5 median ones and compute the mean as consolidated value.
-// With the "Loulou74" board, the sampling is different: we sample PSI at 8sps, and pH, Orp at 
-// 4sps each. Filtering and average is then performed as usual to get a new value every second.
-
-//We have here two sections of code here of which only one will be compiled depending on the
-//configuration 
-
 #ifdef EXT_ADS1115
 //----------------------------
 void AnalogInit()
@@ -96,25 +82,20 @@ void AnalogPoll(void *pvParameters)
     lockI2C();
     adc_ext.update();
 
-    if(adc_ext.ready()){                              // all conversions done ?
-      // As an int is 32 bits long for ESP32 and as the ADS1115 is wired in differential, we have to manage
-      // negative voltage as follow
+    if(adc_ext.ready()){
       orp_sensor_value = adc_ext.readFilter(0);
-      if(orp_sensor_value >= 32768) orp_sensor_value = orp_sensor_value - 65536;  // ORP sensor current value
+      if(orp_sensor_value >= 32768) orp_sensor_value = orp_sensor_value - 65536;
       ph_sensor_value = adc_ext.readFilter(1);
-      if(ph_sensor_value >= 32768) ph_sensor_value= ph_sensor_value - 65536;      // pH sensor current value
+      if(ph_sensor_value >= 32768) ph_sensor_value= ph_sensor_value - 65536;
       adc_ext.start();  
         
-      //Ph
-      samples_Ph.add(ph_sensor_value);          // compute average of pH from center 5 measurements among 11
+      samples_Ph.add(ph_sensor_value);
       PMData.PhValue = (samples_Ph.getAverage(5)*0.1875/1000.)*PMConfig.get<double>(PHCALIBCOEFFS0) + PMConfig.get<double>(PHCALIBCOEFFS1);
 
-      //ORP
-      samples_Orp.add(orp_sensor_value);        // compute average of ORP from last 5 measurements
+      samples_Orp.add(orp_sensor_value);
       PMData.OrpValue = (samples_Orp.getAverage(5)*0.1875/1000.)*PMConfig.get<double>(ORPCALIBCOEFFS0) + PMConfig.get<double>(ORPCALIBCOEFFS1);
 
 #ifdef KC868_A8
-      // Override with simulated values when simulation is active
       double simPH = SimSensor.getSimulatedValue(SimSensor.SENSOR_PH);
       if (!isnan(simPH)) PMData.PhValue = simPH;
       double simORP = SimSensor.getSimulatedValue(SimSensor.SENSOR_ORP);
@@ -128,16 +109,14 @@ void AnalogPoll(void *pvParameters)
     adc_int.update();
 
     if(adc_int.ready()){
-      psi_sensor_value = adc_int.readFilter(0) ;    // psi sensor current value
+      psi_sensor_value = adc_int.readFilter(0) ;
       adc_int.start();
 
-      //PSI (water pressure)
-      samples_PSI.add(psi_sensor_value);        // compute average of PSI from last 5 measurements
+      samples_PSI.add(psi_sensor_value);
       PMData.PSIValue = (samples_PSI.getAverage(5)*0.1875/1000.)*PMConfig.get<double>(PSICALIBCOEFFS0) + PMConfig.get<double>(PSICALIBCOEFFS1);
       PMData.PSIValue = (PMData.PSIValue < 0)? 0 : PMData.PSIValue;
 
 #ifdef KC868_A8
-      // Override with simulated value when simulation is active
       double simPSI = SimSensor.getSimulatedValue(SimSensor.SENSOR_PSI);
       if (!isnan(simPSI)) PMData.PSIValue = simPSI;
 #endif
@@ -190,28 +169,23 @@ void AnalogPoll(void *pvParameters)
     lockI2C();
     adc_int.update();
 
-    if(adc_int.ready()){                              // all conversions done ?
-        orp_sensor_value = adc_int.readFilter(0) ;    // ORP sensor current value
-        ph_sensor_value  = adc_int.readFilter(1) ;    // pH sensor current value
-        psi_sensor_value = adc_int.readFilter(2) ;    // psi sensor current value
+    if(adc_int.ready()){
+        orp_sensor_value = adc_int.readFilter(0) ;
+        ph_sensor_value  = adc_int.readFilter(1) ;
+        psi_sensor_value = adc_int.readFilter(2) ;
         adc_int.start();  
         
-        //Ph
-        samples_Ph.add(ph_sensor_value);          // compute average of pH from center 5 measurements among 11
+        samples_Ph.add(ph_sensor_value);
         PMData.PhValue = (samples_Ph.getAverage(5)*0.1875/1000.)*PMConfig.get<double>(PHCALIBCOEFFS0) + PMConfig.get<double>(PHCALIBCOEFFS1);
 
-        //ORP
-        samples_Orp.add(orp_sensor_value);        // compute average of ORP from last 5 measurements
+        samples_Orp.add(orp_sensor_value);
         PMData.OrpValue = (samples_Orp.getAverage(5)*0.1875/1000.)*PMConfig.get<double>(ORPCALIBCOEFFS0) + PMConfig.get<double>(ORPCALIBCOEFFS1);
 
-        //PSI (water pressure)
-        samples_PSI.add(psi_sensor_value);        // compute average of PSI from last 5 measurements
+        samples_PSI.add(psi_sensor_value);
         PMData.PSIValue = (samples_PSI.getAverage(5)*0.1875/1000.)*PMConfig.get<double>(PSICALIBCOEFFS0) + PMConfig.get<double>(PSICALIBCOEFFS1);
         PMData.PSIValue = (PMData.PSIValue < 0)? 0 : PMData.PSIValue;
 
 #ifdef KC868_A8
-        // Override with simulated values when simulation is active
-        // This must happen after calibration
         double simPH = SimSensor.getSimulatedValue(SimSensor.SENSOR_PH);
         if (!isnan(simPH)) PMData.PhValue = simPH;
         double simORP = SimSensor.getSimulatedValue(SimSensor.SENSOR_ORP);
@@ -219,8 +193,6 @@ void AnalogPoll(void *pvParameters)
         double simPSI = SimSensor.getSimulatedValue(SimSensor.SENSOR_PSI);
         if (!isnan(simPSI)) PMData.PSIValue = simPSI;
 #endif
-
-
 
         Debug.print(DBG_DEBUG,"pH: %5.0f - %4.2f - ORP: %5.0f - %3.0fmV - PSI: %5.0f - %4.2fBar\r",
             ph_sensor_value,PMData.PhValue,orp_sensor_value,PMData.OrpValue,psi_sensor_value,PMData.PSIValue);
@@ -328,21 +300,9 @@ void pHRegulation(void *pvParameters)
   TickType_t ticktime = xTaskGetTickCount(); 
   static UBaseType_t hwm = 0;
 
-  #ifdef CHRONO
-  unsigned long td;
-  int t_act=0,t_min=999,t_max=0;
-  float t_mean=0.;
-  int n=1;
-  #endif
-
   for(;;)
   {
-    #ifdef CHRONO
-    td = millis();
-    #endif 
-
     //do not compute PID if filtration pump is not running
-    // Set also a lower limit at 30s (a lower pump duration doesn't mean anything)
     if (PhPID.GetMode() == AUTOMATIC)
     {  
       if (FiltrationPump.IsRunning()) {
@@ -356,20 +316,20 @@ void pHRegulation(void *pvParameters)
            turn the Acid pump on/off based on pid output
           ************************************************/
           unsigned long now = millis();
+          unsigned long wSize = PMConfig.get<unsigned long>(PHPIDWINDOWSIZE);
           Debug.print(DBG_INFO,"[pHReg] now=%lu wStart=%lu wSize=%lu output=%lu",
-            now, PMData.PhPIDwStart, PMConfig.get<unsigned long>(PHPIDWINDOWSIZE),
-            (unsigned long)PMData.PhPIDOutput);
-          if (now - PMData.PhPIDwStart > PMConfig.get<unsigned long>(PHPIDWINDOWSIZE))
+            now, PMData.PhPIDwStart, wSize, (unsigned long)PMData.PhPIDOutput);
+          if (now - PMData.PhPIDwStart > wSize)
           {
             //time to shift the Relay Window
-            PMData.PhPIDwStart += PMConfig.get<double>(PHPIDWINDOWSIZE);
+            PMData.PhPIDwStart += wSize;
             Debug.print(DBG_INFO,"[pHReg] Window shifted to %lu", PMData.PhPIDwStart);
             }
           if ((unsigned long)PMData.PhPIDOutput <= now - PMData.PhPIDwStart) {
-            Debug.print(DBG_INFO,"[pHReg] STOP (output <= elapsed)");
+            Debug.print(DBG_INFO,"[pHReg] STOP (output=%lu <= elapsed=%lu)", (unsigned long)PMData.PhPIDOutput, now - PMData.PhPIDwStart);
             PhPump.Stop();
           } else {
-            Debug.print(DBG_INFO,"[pHReg] START (output > elapsed)");
+            Debug.print(DBG_INFO,"[pHReg] START (output=%lu > elapsed=%lu)", (unsigned long)PMData.PhPIDOutput, now - PMData.PhPIDwStart);
             uint8_t err = PhPump.Start();
             logPumpStartErrors("PhPump", err);
           }
@@ -380,15 +340,6 @@ void pHRegulation(void *pvParameters)
         PhPump.Stop();
       } 
     }
-
- #ifdef CHRONO
-    t_act = millis() - td;
-    if(t_act > t_max) t_max = t_act;
-    if(t_act < t_min) t_min = t_act;
-    t_mean += (t_act - t_mean)/n;
-    ++n;
-    Debug.print(DBG_INFO,"[pHRegulation] td: %d t_act: %d t_min: %d t_max: %d t_mean: %4.1f",td,t_act,t_min,t_max,t_mean);
-    #endif
 
     stack_mon(hwm);
     vTaskDelayUntil(&ticktime,period);
@@ -405,21 +356,9 @@ void OrpRegulation(void *pvParameters)
   TickType_t ticktime = xTaskGetTickCount(); 
   static UBaseType_t hwm = 0;
 
-  #ifdef CHRONO
-  unsigned long td;
-  int t_act=0,t_min=999,t_max=0;
-  float t_mean=0.;
-  int n=1;
-  #endif
-
   for(;;)
   { 
-    #ifdef CHRONO
-    td = millis();
-    #endif 
-
     //do not compute PID if filtration pump is not running
-    // Set also a lower limit at 30s (a lower pump duration does'nt mean anything)
     if (OrpPID.GetMode() == AUTOMATIC) {
       if (FiltrationPump.IsRunning())
       {
@@ -432,20 +371,20 @@ void OrpRegulation(void *pvParameters)
          turn the Chl pump on/off based on pid output
         ************************************************/
         unsigned long now = millis();
+        unsigned long wSize = PMConfig.get<unsigned long>(ORPPIDWINDOWSIZE);
         Debug.print(DBG_INFO,"[OrpReg] now=%lu wStart=%lu wSize=%lu output=%lu",
-          now, PMData.OrpPIDwStart, PMConfig.get<unsigned long>(ORPPIDWINDOWSIZE),
-          (unsigned long)PMData.OrpPIDOutput);
-        if (now - PMData.OrpPIDwStart > PMConfig.get<double>(ORPPIDWINDOWSIZE))
+          now, PMData.OrpPIDwStart, wSize, (unsigned long)PMData.OrpPIDOutput);
+        if (now - PMData.OrpPIDwStart > wSize)
         {
           //time to shift the Relay Window
-          PMData.OrpPIDwStart += PMConfig.get<double>(ORPPIDWINDOWSIZE);
+          PMData.OrpPIDwStart += wSize;
           Debug.print(DBG_INFO,"[OrpReg] Window shifted to %lu", PMData.OrpPIDwStart);
         }
         if ((unsigned long)PMData.OrpPIDOutput <= now - PMData.OrpPIDwStart) {
-          Debug.print(DBG_INFO,"[OrpReg] STOP (output <= elapsed)");
+          Debug.print(DBG_INFO,"[OrpReg] STOP (output=%lu <= elapsed=%lu)", (unsigned long)PMData.OrpPIDOutput, now - PMData.OrpPIDwStart);
           ChlPump.Stop();
         } else {
-          Debug.print(DBG_INFO,"[OrpReg] START (output > elapsed)");
+          Debug.print(DBG_INFO,"[OrpReg] START (output=%lu > elapsed=%lu)", (unsigned long)PMData.OrpPIDOutput, now - PMData.OrpPIDwStart);
           uint8_t err = ChlPump.Start();
           logPumpStartErrors("ChlPump", err);
         }
@@ -457,15 +396,6 @@ void OrpRegulation(void *pvParameters)
       } 
     }
 
-    #ifdef CHRONO
-    t_act = millis() - td;
-    if(t_act > t_max) t_max = t_act;
-    if(t_act < t_min) t_min = t_act;
-    t_mean += (t_act - t_mean)/n;
-    ++n;
-    Debug.print(DBG_INFO,"[OrpRegulation] td: %d t_act: %d t_min: %d t_max: %d t_mean: %4.1f",td,t_act,t_min,t_max,t_mean);
-    #endif
-
     stack_mon(hwm);    
     vTaskDelayUntil(&ticktime,period);
   }
@@ -476,9 +406,8 @@ void TempInit()
 {
   bool error = false;
   char buf[64];
-  // Start up the library
   sensors_W.begin();
-  sensors_W.begin(); // two times to work-around of a OneWire library bug for enumeration
+  sensors_W.begin();
   sensors_A.begin();
 
   Debug.print(DBG_INFO,"1wire W devices: %d device(s) found",sensors_W.getDeviceCount());
@@ -521,18 +450,14 @@ void TempInit()
 
   if(!error) 
   {
-    // set the resolution
     sensors_W.setResolution(DS18B20_W, TEMPERATURE_RESOLUTION);
     sensors_A.setResolution(DS18B20_A, TEMPERATURE_RESOLUTION);
-
-    //don't wait ! Asynchronous mode
     sensors_W.setWaitForConversion(false);
     sensors_A.setWaitForConversion(false);
   }
 }
 
 //Request temperature asynchronously
-//in case of reading error, the buffer is not updated and the last value is kept
 void getTemp(void *pvParameters)
 {
   while (!startTasks) ;
@@ -542,23 +467,12 @@ void getTemp(void *pvParameters)
   TickType_t ticktime = xTaskGetTickCount(); 
   static UBaseType_t hwm = 0;
 
-  #ifdef CHRONO
-  unsigned long td;
-  int t_act=0,t_min=999,t_max=0;
-  float t_mean=0.;
-  int n=1;
-  #endif
-
   sensors_W.requestTemperatures();
   sensors_A.requestTemperatures();
   vTaskDelayUntil(&ticktime,period);
   
   for(;;)
   {        
-    #ifdef CHRONO
-    td = millis();
-    #endif 
-
     double temp = sensors_W.getTempC(DS18B20_W);
     if (temp == NAN || temp == -127) {
       Debug.print(DBG_WARNING,"Error getting Water temperature");
@@ -578,15 +492,6 @@ void getTemp(void *pvParameters)
     sensors_W.requestTemperatures();
     sensors_A.requestTemperatures();
 
-    #ifdef CHRONO
-    t_act = millis() - td;
-    if(t_act > t_max) t_max = t_act;
-    if(t_act < t_min) t_min = t_act;
-    t_mean += (t_act - t_mean)/n;
-    ++n;
-    Debug.print(DBG_INFO,"[getTemp] td: %d t_act: %d t_min: %d t_max: %d t_mean: %4.1f",td,t_act,t_min,t_max,t_mean);
-    #endif
-
     stack_mon(hwm);
     vTaskDelayUntil(&ticktime,period);
   } 
@@ -594,10 +499,6 @@ void getTemp(void *pvParameters)
 
 // ============================================================
 // Analog Sensor Simulation Loop (KC868-A8 only)
-// ============================================================
-// Runs every 60 seconds. Checks pump states and adjusts
-// simulated pH/ORP values accordingly.
-// Only active when SIMU_PH / SIMU_ORP is enabled in Config.h.
 // ==========================================================
 void AnalogSimLoop(void *pvParameters)
 {
