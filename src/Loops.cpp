@@ -280,7 +280,6 @@ void pHRegulation(void *pvParameters)
           if(PhPID.Compute()){
             Debug.print(DBG_INFO,"Ph  regulation: %10.2f, %13.9f, %13.9f, %17.9f",PMData.PhPIDOutput,PMData.PhValue,PMData.Ph_SetPoint,PMConfig.get<double>(PH_KP));
             if(PMData.PhPIDOutput < (double)30000.) PMData.PhPIDOutput = 0.;
-            Debug.print(DBG_INFO,"Ph  regulation: %10.2f",PMData.PhPIDOutput);
           }    
 
           /************************************************
@@ -292,13 +291,10 @@ void pHRegulation(void *pvParameters)
           {
             //time to shift the Relay Window
             PMData.PhPIDwStart += wSize;
-            Debug.print(DBG_INFO,"[pHReg] Window shifted, output=%lu", (unsigned long)PMData.PhPIDOutput);
           }
           if ((unsigned long)PMData.PhPIDOutput <= now - PMData.PhPIDwStart) {
-            Debug.print(DBG_INFO,"[pHReg] STOP (output=%lu <= elapsed=%lu)", (unsigned long)PMData.PhPIDOutput, now - PMData.PhPIDwStart);
             PhPump.Stop();
           } else {
-            Debug.print(DBG_INFO,"[pHReg] START (output=%lu > elapsed=%lu)", (unsigned long)PMData.PhPIDOutput, now - PMData.PhPIDwStart);
             uint8_t err = PhPump.Start();
             logPumpStartErrors("PhPump", err);
           }
@@ -334,7 +330,6 @@ void OrpRegulation(void *pvParameters)
         if(OrpPID.Compute()){
           Debug.print(DBG_INFO,"ORP regulation: %10.2f, %13.9f, %12.9f, %17.9f",PMData.OrpPIDOutput,PMData.OrpValue,PMData.Orp_SetPoint,PMConfig.get<double>(ORP_KP));
           if(PMData.OrpPIDOutput < (double)30000.) PMData.OrpPIDOutput = 0.;    
-            Debug.print(DBG_INFO,"Orp regulation: %10.2f",PMData.OrpPIDOutput);
           }    
 
         /************************************************
@@ -346,13 +341,10 @@ void OrpRegulation(void *pvParameters)
         {
           //time to shift the Relay Window
           PMData.OrpPIDwStart += wSize;
-          Debug.print(DBG_INFO,"[OrpReg] Window shifted, output=%lu", (unsigned long)PMData.OrpPIDOutput);
         }
         if ((unsigned long)PMData.OrpPIDOutput <= now - PMData.OrpPIDwStart) {
-          Debug.print(DBG_INFO,"[OrpReg] STOP (output=%lu <= elapsed=%lu)", (unsigned long)PMData.OrpPIDOutput, now - PMData.OrpPIDwStart);
           ChlPump.Stop();
         } else {
-          Debug.print(DBG_INFO,"[OrpReg] START (output=%lu > elapsed=%lu)", (unsigned long)PMData.OrpPIDOutput, now - PMData.OrpPIDwStart);
           uint8_t err = ChlPump.Start();
           logPumpStartErrors("ChlPump", err);
         }
