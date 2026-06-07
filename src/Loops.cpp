@@ -48,7 +48,6 @@ static void logPumpStartErrors(const char* pumpName, uint8_t errors) {
         (errors >> 3) & 1); // Bit 3: Relay error
 }
 
-//Update loop for ADS1115 measurements
 #ifdef EXT_ADS1115
 //----------------------------
 void AnalogInit()
@@ -80,7 +79,7 @@ void AnalogPoll(void *pvParameters)
   for(;;)
   {
     lockI2C();
-    adc_ext.update();
+  adc_ext.update();
 
     if(adc_ext.ready()){
       orp_sensor_value = adc_ext.readFilter(0);
@@ -199,15 +198,6 @@ void AnalogPoll(void *pvParameters)
     }
     unlockI2C();
 
-    #ifdef CHRONO
-    t_act = millis() - td;
-    if(t_act > t_max) t_max = t_act;
-    if(t_act < t_min) t_min = t_act;
-    t_mean += (t_act - t_mean)/n;
-    ++n;
-    Debug.print(DBG_INFO,"[AnalogPoll] td: %d t_act: %d t_min: %d t_max: %d t_mean: %4.1f",td,t_act,t_min,t_max,t_mean);
-    #endif 
-
     stack_mon(hwm);
     vTaskDelayUntil(&ticktime,period);
   }  
@@ -228,19 +218,8 @@ void StatusLights(void *pvParameters)
   TickType_t ticktime = xTaskGetTickCount(); 
   static UBaseType_t hwm = 0;
 
-  #ifdef CHRONO
-  unsigned long td;
-  int t_act=0,t_min=999,t_max=0;
-  float t_mean=0.;
-  int n=1;
-  #endif
-
   for(;;)
   {
-    #ifdef CHRONO
-    td = millis();
-    #endif 
-
     status = 0;
     status |= (line & 1) << 1;
     if(line == 0)
@@ -277,15 +256,6 @@ void StatusLights(void *pvParameters)
     Wire.endTransmission();
     unlockI2C();
 
-    #ifdef CHRONO
-    t_act = millis() - td;
-    if(t_act > t_max) t_max = t_act;
-    if(t_act < t_min) t_min = t_act;
-    t_mean += (t_act - t_mean)/n;
-    ++n;
-    Debug.print(DBG_INFO,"[StatusLights] td: %d t_act: %d t_min: %d t_max: %d t_mean: %4.1f",td,t_act,t_min,t_max,t_mean);
-    #endif
-
     stack_mon(hwm);
     vTaskDelayUntil(&ticktime,period);
   }
@@ -311,27 +281,28 @@ void pHRegulation(void *pvParameters)
             Debug.print(DBG_INFO,"Ph  regulation: %10.2f, %13.9f, %13.9f, %17.9f",PMData.PhPIDOutput,PMData.PhValue,PMData.Ph_SetPoint,PMConfig.get<double>(PH_KP));
             if(PMData.PhPIDOutput < (double)30000.) PMData.PhPIDOutput = 0.;
             Debug.print(DBG_INFO,"Ph  regulation: %10.2f",PMData.PhPIDOutput);
-          }    
-          /************************************************
-           turn the Acid pump on/off based on pid output
-          ************************************************/
-          unsigned long now = millis();
-          unsigned long wSize = PMConfig.get<unsigned long>(PHPIDWINDOWSIZE);
-          Debug.print(DBG_INFO,"[pHReg] now=%lu wStart=%lu wSize=%lu output=%lu",
-            now, PMData.PhPIDwStart, wSize, (unsigned long)PMData.PhPIDOutput);
-          if (now - PMData.PhPIDwStart > wSize)
-          {
-            //time to shift the Relay Window
-            PMData.PhPIDwStart += wSize;
-            Debug.print(DBG_INFO,"[pHReg] Window shifted to %lu", PMData.PhPIDwStart);
+
+            /************************************************
+             turn the Acid pump on/off based on pid output
+            ************************************************/
+            unsigned long now = millis();
+            unsigned long wSize = PMConfig.get<unsigned long>(PHPIDWINDOWSIZE);
+            Debug.print(DBG_INFO,"[pHReg] now=%lu wStart=%lu wSize=%lu output=%lu",
+              now, PMData.PhPIDwStart, wSize, (unsigned long)PMData.PhPIDOutput);
+            if (now - PMData.PhPIDwStart > wSize)
+            {
+              //time to shift the Relay Window
+              PMData.PhPIDwStart += wSize;
+              Debug.print(DBG_INFO,"[pHReg] Window shifted to %lu", PMData.PhPIDwStart);
             }
-          if ((unsigned long)PMData.PhPIDOutput <= now - PMData.PhPIDwStart) {
-            Debug.print(DBG_INFO,"[pHReg] STOP (output=%lu <= elapsed=%lu)", (unsigned long)PMData.PhPIDOutput, now - PMData.PhPIDwStart);
-            PhPump.Stop();
-          } else {
-            Debug.print(DBG_INFO,"[pHReg] START (output=%lu > elapsed=%lu)", (unsigned long)PMData.PhPIDOutput, now - PMData.PhPIDwStart);
-            uint8_t err = PhPump.Start();
-            logPumpStartErrors("PhPump", err);
+            if ((unsigned long)PMData.PhPIDOutput <= now - PMData.PhPIDwStart) {
+              Debug.print(DBG_INFO,"[pHReg] STOP (output=%lu <= elapsed=%lu)", (unsigned long)PMData.PhPIDOutput, now - PMData.PhPIDwStart);
+              PhPump.Stop();
+            } else {
+              Debug.print(DBG_INFO,"[pHReg] START (output=%lu > elapsed=%lu)", (unsigned long)PMData.PhPIDOutput, now - PMData.PhPIDwStart);
+              uint8_t err = PhPump.Start();
+              logPumpStartErrors("PhPump", err);
+            }
           }
       } else {
         PhPID.SetMode(MANUAL);
@@ -366,27 +337,28 @@ void OrpRegulation(void *pvParameters)
           Debug.print(DBG_INFO,"ORP regulation: %10.2f, %13.9f, %12.9f, %17.9f",PMData.OrpPIDOutput,PMData.OrpValue,PMData.Orp_SetPoint,PMConfig.get<double>(ORP_KP));
           if(PMData.OrpPIDOutput < (double)30000.) PMData.OrpPIDOutput = 0.;    
             Debug.print(DBG_INFO,"Orp regulation: %10.2f",PMData.OrpPIDOutput);
-          }    
-        /************************************************
-         turn the Chl pump on/off based on pid output
-        ************************************************/
-        unsigned long now = millis();
-        unsigned long wSize = PMConfig.get<unsigned long>(ORPPIDWINDOWSIZE);
-        Debug.print(DBG_INFO,"[OrpReg] now=%lu wStart=%lu wSize=%lu output=%lu",
-          now, PMData.OrpPIDwStart, wSize, (unsigned long)PMData.OrpPIDOutput);
-        if (now - PMData.OrpPIDwStart > wSize)
-        {
-          //time to shift the Relay Window
-          PMData.OrpPIDwStart += wSize;
-          Debug.print(DBG_INFO,"[OrpReg] Window shifted to %lu", PMData.OrpPIDwStart);
-        }
-        if ((unsigned long)PMData.OrpPIDOutput <= now - PMData.OrpPIDwStart) {
-          Debug.print(DBG_INFO,"[OrpReg] STOP (output=%lu <= elapsed=%lu)", (unsigned long)PMData.OrpPIDOutput, now - PMData.OrpPIDwStart);
-          ChlPump.Stop();
-        } else {
-          Debug.print(DBG_INFO,"[OrpReg] START (output=%lu > elapsed=%lu)", (unsigned long)PMData.OrpPIDOutput, now - PMData.OrpPIDwStart);
-          uint8_t err = ChlPump.Start();
-          logPumpStartErrors("ChlPump", err);
+
+          /************************************************
+           turn the Chl pump on/off based on pid output
+          ************************************************/
+          unsigned long now = millis();
+          unsigned long wSize = PMConfig.get<unsigned long>(ORPPIDWINDOWSIZE);
+          Debug.print(DBG_INFO,"[OrpReg] now=%lu wStart=%lu wSize=%lu output=%lu",
+            now, PMData.OrpPIDwStart, wSize, (unsigned long)PMData.OrpPIDOutput);
+          if (now - PMData.OrpPIDwStart > wSize)
+          {
+            //time to shift the Relay Window
+            PMData.OrpPIDwStart += wSize;
+            Debug.print(DBG_INFO,"[OrpReg] Window shifted to %lu", PMData.OrpPIDwStart);
+          }
+          if ((unsigned long)PMData.OrpPIDOutput <= now - PMData.OrpPIDwStart) {
+            Debug.print(DBG_INFO,"[OrpReg] STOP (output=%lu <= elapsed=%lu)", (unsigned long)PMData.OrpPIDOutput, now - PMData.OrpPIDwStart);
+            ChlPump.Stop();
+          } else {
+            Debug.print(DBG_INFO,"[OrpReg] START (output=%lu > elapsed=%lu)", (unsigned long)PMData.OrpPIDOutput, now - PMData.OrpPIDwStart);
+            uint8_t err = ChlPump.Start();
+            logPumpStartErrors("ChlPump", err);
+          }
         }
       } else {
         OrpPID.SetMode(MANUAL);
