@@ -79,7 +79,7 @@ void AnalogPoll(void *pvParameters)
   for(;;)
   {
     lockI2C();
-  adc_ext.update();
+    adc_ext.update();
 
     if(adc_ext.ready()){
       orp_sensor_value = adc_ext.readFilter(0);
@@ -287,19 +287,20 @@ void pHRegulation(void *pvParameters)
             ************************************************/
             unsigned long now = millis();
             unsigned long wSize = PMConfig.get<unsigned long>(PHPIDWINDOWSIZE);
-            Debug.print(DBG_INFO,"[pHReg] now=%lu wStart=%lu wSize=%lu output=%lu",
-              now, PMData.PhPIDwStart, wSize, (unsigned long)PMData.PhPIDOutput);
-            if (now - PMData.PhPIDwStart > wSize)
-            {
-              //time to shift the Relay Window
-              PMData.PhPIDwStart += wSize;
-              Debug.print(DBG_INFO,"[pHReg] Window shifted to %lu", PMData.PhPIDwStart);
-            }
-            if ((unsigned long)PMData.PhPIDOutput <= now - PMData.PhPIDwStart) {
-              Debug.print(DBG_INFO,"[pHReg] STOP (output=%lu <= elapsed=%lu)", (unsigned long)PMData.PhPIDOutput, now - PMData.PhPIDwStart);
+            
+            // Reset relay window start to now - this ensures the window
+            // always starts fresh when PID computes a new output value
+            PMData.PhPIDwStart = now;
+            
+            Debug.print(DBG_INFO,"[pHReg] now=%lu output=%lu wSize=%lu",
+              now, (unsigned long)PMData.PhPIDOutput, wSize);
+            
+            if (PMData.PhPIDOutput < 1.0) {
+              // PID output is zero (below threshold) - pump off
+              Debug.print(DBG_INFO,"[pHReg] STOP (output=0)");
               PhPump.Stop();
             } else {
-              Debug.print(DBG_INFO,"[pHReg] START (output=%lu > elapsed=%lu)", (unsigned long)PMData.PhPIDOutput, now - PMData.PhPIDwStart);
+              Debug.print(DBG_INFO,"[pHReg] START (output=%lu > 0)", (unsigned long)PMData.PhPIDOutput);
               uint8_t err = PhPump.Start();
               logPumpStartErrors("PhPump", err);
             }
@@ -343,19 +344,18 @@ void OrpRegulation(void *pvParameters)
           ************************************************/
           unsigned long now = millis();
           unsigned long wSize = PMConfig.get<unsigned long>(ORPPIDWINDOWSIZE);
-          Debug.print(DBG_INFO,"[OrpReg] now=%lu wStart=%lu wSize=%lu output=%lu",
-            now, PMData.OrpPIDwStart, wSize, (unsigned long)PMData.OrpPIDOutput);
-          if (now - PMData.OrpPIDwStart > wSize)
-          {
-            //time to shift the Relay Window
-            PMData.OrpPIDwStart += wSize;
-            Debug.print(DBG_INFO,"[OrpReg] Window shifted to %lu", PMData.OrpPIDwStart);
-          }
-          if ((unsigned long)PMData.OrpPIDOutput <= now - PMData.OrpPIDwStart) {
-            Debug.print(DBG_INFO,"[OrpReg] STOP (output=%lu <= elapsed=%lu)", (unsigned long)PMData.OrpPIDOutput, now - PMData.OrpPIDwStart);
+          
+          // Reset relay window start to now
+          PMData.OrpPIDwStart = now;
+          
+          Debug.print(DBG_INFO,"[OrpReg] now=%lu output=%lu wSize=%lu",
+            now, (unsigned long)PMData.OrpPIDOutput, wSize);
+          
+          if (PMData.OrpPIDOutput < 1.0) {
+            Debug.print(DBG_INFO,"[OrpReg] STOP (output=0)");
             ChlPump.Stop();
           } else {
-            Debug.print(DBG_INFO,"[OrpReg] START (output=%lu > elapsed=%lu)", (unsigned long)PMData.OrpPIDOutput, now - PMData.OrpPIDwStart);
+            Debug.print(DBG_INFO,"[OrpReg] START (output=%lu > 0)", (unsigned long)PMData.OrpPIDOutput);
             uint8_t err = ChlPump.Start();
             logPumpStartErrors("ChlPump", err);
           }
