@@ -32,8 +32,12 @@ void Pump::loop()
   {
     if (loopHandler) loopHandler(); // Appel du handler à chaque boucle
 
-    UpTime += millis() - LastLoopMillis;
-    LastLoopMillis = millis();
+    // Guard: if Stop() was called from another task (e.g. PID regulation),
+    // skip accumulation here to prevent double-counting UpTime.
+    if (!_stopped) {
+      UpTime += millis() - LastLoopMillis;
+      LastLoopMillis = millis();
+    }
 
     if((CurrMaxUpTime > 0) && (UpTime >= CurrMaxUpTime))
     {
@@ -78,9 +82,11 @@ u_int8_t Pump::Start(bool _resetUpTime)
 #endif
       return bitMaskErrors;
     } else {
+      _stopped = false; // Clear guard so Pump::loop() resumes accumulation
       LastLoopMillis = StartTime = millis(); 
 #ifdef KC868_A8
-      Serial.printf("[Pump::Start] pin=%d Pump STARTED OK\r\n", GetPinNumber());
+      Serial.printf("[Pump::Start] '%s' pin=%d STARTED at %lu ms, UpTime=%.1fs\r\n",
+        GetName(), GetPinNumber(), millis(), GetUpTime());
 #endif
     }
   }
@@ -92,13 +98,23 @@ bool Pump::Stop()
 {
   if(IsRunning())
   {
+    _stopped = true; // Set guard BEFORE disabling relay to prevent Pump::loop() double-count
+    unsigned long delta = millis() - LastLoopMillis;
     if (!this->Relay::Disable())
     {
+#ifdef KC868_A8
+      Serial.printf("[Pump::Stop]  '%s' pin=%d Relay Disable FAILED!\r\n",
+        GetName(), GetPinNumber());
+#endif
+      _stopped = false; // Reset guard on failure
       return false;
     }
     
-    UpTime += millis() - LastLoopMillis; 
-
+    UpTime += delta;
+#ifdef KC868_A8
+    Serial.printf("[Pump::Stop]  '%s' pin=%d STOPPED  at %lu ms, delta=%lu ms, UpTime=%.1fs\r\n",
+      GetName(), GetPinNumber(), millis(), delta, GetUpTime());
+#endif
     
     return true;
   } else return false;
@@ -199,6 +215,7 @@ void Pump::ResetUpTime()
   StartTime = 0;
   StopTime = 0;
   UpTime = 0;
+  _stopped = false; // Clear guard on reset
   CurrMaxUpTime = MaxUpTime;
   LastLoopMillis = millis();  // FIX: preserve millis() reference to avoid jump in UpTime calculation
 }
