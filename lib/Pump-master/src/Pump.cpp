@@ -68,11 +68,6 @@ u_int8_t Pump::Start(bool _resetUpTime)
   bitMaskErrors |= (!TankLevel() & 1) << 1; // Bit 1: Tank level error
   bitMaskErrors |= (!CheckInterlock() & 1) << 2; // Bit 2: Interlock error
 
-#ifdef KC868_A8
-  Serial.printf("[Pump::Start] pin=%d isRunning=%d UpTimeErr=%d Tank=%d Interlock=%d bits=0x%02X\r\n",
-    GetPinNumber(), IsRunning(), UpTimeError, TankLevel(), CheckInterlock(), bitMaskErrors);
-#endif
-
   if((!IsRunning()) && !UpTimeError && TankLevel() && CheckInterlock())
   {
     if (!this->Relay::Enable()) {
