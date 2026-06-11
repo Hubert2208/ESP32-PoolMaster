@@ -37,26 +37,15 @@ void stack_mon(UBaseType_t&);
 void lockI2C();
 void unlockI2C();
 
-// Helper: log pump start errors — only on state change to avoid spam
+// Helper: log pump start errors as decoded bitmask
 static void logPumpStartErrors(const char* pumpName, uint8_t errors) {
-    static uint8_t lastErrPh  = 0xFF; // track PhPump state
-    static uint8_t lastErrChl = 0xFF; // track ChlPump state
-
-    uint8_t &lastErr = (strcmp(pumpName, "PhPump") == 0) ? lastErrPh : lastErrChl;
-
-    if (errors == lastErr) return;  // no change — skip
-    lastErr = errors;
-
-    if (errors == 0) {
-        Debug.print(DBG_INFO, "[%s] Start OK", pumpName);
-    } else {
-        Debug.print(DBG_WARNING, "[%s] Start errors: 0x%02X | UpTime:%d Tank:%d Interlock:%d Relay:%d",
-            pumpName, errors,
-            (errors >> 0) & 1,  // Bit 0: UpTimeError
-            (errors >> 1) & 1,  // Bit 1: TankLevel error
-            (errors >> 2) & 1,  // Bit 2: Interlock error
-            (errors >> 3) & 1); // Bit 3: Relay error
-    }
+    if (errors == 0) return; // no errors, pump started successfully
+    Debug.print(DBG_WARNING, "[%s] Start() errors: 0x%02X | UpTime:%d Tank:%d Interlock:%d Relay:%d",
+        pumpName, errors,
+        (errors >> 0) & 1,  // Bit 0: UpTimeError
+        (errors >> 1) & 1,  // Bit 1: TankLevel error
+        (errors >> 2) & 1,  // Bit 2: Interlock error
+        (errors >> 3) & 1); // Bit 3: Relay error
 }
 
 #ifdef EXT_ADS1115
@@ -112,7 +101,7 @@ void AnalogPoll(void *pvParameters)
       if (!isnan(simORP)) PMData.OrpValue = simORP;
 #endif
 
-      Debug.print(DBG_DEBUG,"pH: %5.0f - %4.2f - ORP: %5.0f - %3.0fmV - PSI: %5.0f - %4.2fBar\r",
+      Debug.print(DBG_DEBUG,"pH: %5.0f - %4.2f - ORP: %5.0f - %3.0fmV - PSI: %5.0f - %4.2fBar\r\n",
         ph_sensor_value,PMData.PhValue,orp_sensor_value,PMData.OrpValue,psi_sensor_value,PMData.PSIValue);
     }
     
@@ -158,6 +147,13 @@ void AnalogPoll(void *pvParameters)
   TickType_t ticktime = xTaskGetTickCount(); 
   static UBaseType_t hwm=0;
 
+  #ifdef CHRONO
+  unsigned long td;
+  int t_act=0,t_min=999,t_max=0;
+  float t_mean=0.;
+  int n=1;
+  #endif
+
   lockI2C();
   adc_int.start();
   unlockI2C();
@@ -165,6 +161,10 @@ void AnalogPoll(void *pvParameters)
   
   for(;;)
   {
+    #ifdef CHRONO
+    td = millis();
+    #endif
+
     lockI2C();
     adc_int.update();
 
@@ -193,7 +193,7 @@ void AnalogPoll(void *pvParameters)
         if (!isnan(simPSI)) PMData.PSIValue = simPSI;
 #endif
 
-        Debug.print(DBG_DEBUG,"pH: %5.0f - %4.2f - ORP: %5.0f - %3.0fmV - PSI: %5.0f - %4.2fBar\r",
+        Debug.print(DBG_DEBUG,"pH: %5.0f - %4.2f - ORP: %5.0f - %3.0fmV - PSI: %5.0f - %4.2fBar\r\n",
             ph_sensor_value,PMData.PhValue,orp_sensor_value,PMData.OrpValue,psi_sensor_value,PMData.PSIValue);
     }
     unlockI2C();
