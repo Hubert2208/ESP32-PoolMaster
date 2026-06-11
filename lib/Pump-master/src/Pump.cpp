@@ -73,14 +73,15 @@ u_int8_t Pump::Start(bool _resetUpTime)
     if (!this->Relay::Enable()) {
       bitMaskErrors |= (1 << 3); // Bit 3: Relay error
 #ifdef KC868_A8
-      Serial.printf("[Pump::Start] pin=%d Relay Enable FAILED! bits=0x%02X\r\n",
-        GetPinNumber(), bitMaskErrors);
+      Serial.printf("[Pump::Start] '%s' pin=%d Relay Enable FAILED! bits=0x%02X\r\n",
+        GetName(), GetPinNumber(), bitMaskErrors);
 #endif
       return bitMaskErrors;
     } else {
       LastLoopMillis = StartTime = millis(); 
 #ifdef KC868_A8
-      Serial.printf("[Pump::Start] pin=%d Pump STARTED OK\r\n", GetPinNumber());
+      Serial.printf("[Pump::Start] '%s' pin=%d STARTED at %lu ms, UpTime=%.1fs\r\n",
+        GetName(), GetPinNumber(), millis(), GetUpTime());
 #endif
     }
   }
@@ -92,13 +93,21 @@ bool Pump::Stop()
 {
   if(IsRunning())
   {
+    unsigned long delta = millis() - LastLoopMillis;
     if (!this->Relay::Disable())
     {
+#ifdef KC868_A8
+      Serial.printf("[Pump::Stop]  '%s' pin=%d Relay Disable FAILED!\r\n",
+        GetName(), GetPinNumber());
+#endif
       return false;
     }
     
-    UpTime += millis() - LastLoopMillis; 
-
+    UpTime += delta;
+#ifdef KC868_A8
+    Serial.printf("[Pump::Stop]  '%s' pin=%d STOPPED  at %lu ms, delta=%lu ms, UpTime=%.1fs\r\n",
+      GetName(), GetPinNumber(), millis(), delta, GetUpTime());
+#endif
     
     return true;
   } else return false;
