@@ -69,8 +69,17 @@ u_int8_t Pump::Start(bool _resetUpTime)
   bitMaskErrors |= (!CheckInterlock() & 1) << 2; // Bit 2: Interlock error
 
 #ifdef KC868_A8
-  Serial.printf("[Pump::Start] pin=%d isRunning=%d UpTimeErr=%d Tank=%d Interlock=%d bits=0x%02X\r\n",
-    GetPinNumber(), IsRunning(), UpTimeError, TankLevel(), CheckInterlock(), bitMaskErrors);
+  // Only log when error state changes to avoid flooding serial output
+  if (bitMaskErrors != _lastLoggedBits) {
+    _lastLoggedBits = bitMaskErrors;
+    if (bitMaskErrors == 0) {
+      Serial.printf("[Pump::Start] pin=%d STARTED OK\r\n", GetPinNumber());
+    } else {
+      Serial.printf("[Pump::Start] pin=%d bits=0x%02X UpTime=%d Tank=%d Interlock=%d\r\n",
+        GetPinNumber(), bitMaskErrors,
+        (bitMaskErrors >> 0) & 1, (bitMaskErrors >> 1) & 1, (bitMaskErrors >> 2) & 1);
+    }
+  }
 #endif
 
   if((!IsRunning()) && !UpTimeError && TankLevel() && CheckInterlock())
@@ -78,15 +87,15 @@ u_int8_t Pump::Start(bool _resetUpTime)
     if (!this->Relay::Enable()) {
       bitMaskErrors |= (1 << 3); // Bit 3: Relay error
 #ifdef KC868_A8
-      Serial.printf("[Pump::Start] pin=%d Relay Enable FAILED! bits=0x%02X\r\n",
-        GetPinNumber(), bitMaskErrors);
+      if (bitMaskErrors != _lastLoggedBits) {
+        _lastLoggedBits = bitMaskErrors;
+        Serial.printf("[Pump::Start] pin=%d Relay Enable FAILED! bits=0x%02X\r\n",
+          GetPinNumber(), bitMaskErrors);
+      }
 #endif
       return bitMaskErrors;
     } else {
       LastLoopMillis = StartTime = millis(); 
-#ifdef KC868_A8
-      Serial.printf("[Pump::Start] pin=%d Pump STARTED OK\r\n", GetPinNumber());
-#endif
     }
   }
   return bitMaskErrors;
