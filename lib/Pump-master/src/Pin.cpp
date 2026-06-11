@@ -17,7 +17,15 @@ void PIN::Initialize(uint8_t _pin_number, uint8_t _pin_direction, bool _active_l
   // Set variables
   if((_pin_number != pin_number) && (_pin_direction != INPUT_DIGITAL) && ((pin_direction==OUTPUT_DIGITAL)||(pin_direction==OUTPUT_PWM))) { // If we changed port
     if(_pin_number != 0) {
-      digitalWrite(pin_number,!active_level); // Inactivate the previous port
+#ifdef KC868_A8
+      // On KC868-A8, relay pins (100-107) are managed by the KC868 I/O layer.
+      // Skip digitalWrite to avoid overwriting relayState.
+      if(pin_number < 100 || pin_number > 107) {
+#endif
+        digitalWrite(pin_number,!active_level); // Inactivate the previous port
+#ifdef KC868_A8
+      }
+#endif
       // IMPORTANT NOTE: Always change pin number in following order
       //  ->SetPinNumber
       //  ->SetActiveLevel
@@ -33,8 +41,14 @@ void PIN::Initialize(uint8_t _pin_number, uint8_t _pin_direction, bool _active_l
 //Open the port
 void PIN::Begin()
 {
-  //("Call Begin %d (%d)\r\n",pin_number,pin_direction);
   if(pin_number!=0) {
+#ifdef KC868_A8
+    // On KC868-A8, relay pins (100-107) are managed by the KC868 I/O layer
+    // (via setRelay()). Skip pinMode/digitalWrite to avoid overwriting relayState.
+    if(pin_direction==OUTPUT_DIGITAL && pin_number >= 100 && pin_number <= 107) {
+      return; // Relay pin — already initialized by KC868.setRelay()
+    }
+#endif
     // Open the port for OUTPUT and set it to down state
     if(pin_direction==OUTPUT_DIGITAL) {  
       pinMode(pin_number, OUTPUT);

@@ -39,7 +39,7 @@ static unsigned long ConnectionTimeout = 0; // Last action time done on TFT. Go 
 bool MDNSStatus = false;
 
 bool AntiFreezeFiltering = false;               // Filtration anti freeze mode
-//bool EmergencyStopFiltPump = false;             // flag will be (re)set by double-tapp button
+//bool EmergencyStopFiltPump = false;             // flag will be (re)set by double-tap button
 bool PSIError = false;                          // Water pressure OK
 bool cleaning_done = false;                     // daily cleaning done   
 
@@ -86,7 +86,7 @@ Pump ChlPump(CHL_PUMP,CHL_LEVEL);
 // RobotPump: This Pump is not injecting liquid so tank is associated to it. It is interlocked with the relay of the FilrationPump
 Pump RobotPump(ROBOT);
 // SWG: This Pump is associated with a Salt Water Chlorine Generator. It turns on and off the equipment to produce chlorine.
-// It has no tank associated. It is interlocked with the relay of the FilrationPump
+// It has no tank associated. It is interlocked with the relay of the FiltrationPump
 Pump SWGPump(SWG_PUMP);
 // Filling Pump: This pump is autonomous, not interlocked with filtering pump.
 Pump FillingPump(FILL_PUMP);
@@ -381,7 +381,7 @@ void setup()
   // Wire is now initialized — explicitly turn all relays OFF.
   // KC868.begin() ran before Wire.begin() so its I2C write never reached hardware.
   for (uint8_t i = 0; i < 8; i++) {
-    KC868.setRelay(i, true);
+    KC868.setRelay(i, false);
   }
   Debug.print(DBG_INFO,"[KC868-A8] All relays set to OFF (boot reset)");
 #endif
