@@ -101,5 +101,8 @@ class Pump : public Relay {
     unsigned long LastLoopMillis     = 0;
     uint8_t tank_level_pin;
     double flowrate, tankvolume, tankfill; // Flowrate in L/h, tank volume in Liters, tank fill in %
+#ifdef KC868_A8
+    uint8_t _lastLoggedBits = 0xFF; // Track last logged error bitmask to avoid spam
+#endif
 };
 #endif
