@@ -154,6 +154,10 @@ void ProcessCommand(void*);
 void SettingsPublish(void*);
 void MeasuresPublish(void*);
 void StatusLights(void*);
+
+#ifdef KC868_A8
+void AnalogSimLoop(void*);
+#endif
 void UpdateTFT(void*);
 void HistoryStats(void *);
 
@@ -488,7 +492,20 @@ void setup()
     1,
     nullptr,
     app_cpu
-  );  
+  );
+
+#ifdef KC868_A8
+  // Analog sensor simulation loop (pH/ORP dynamic simulation)
+  xTaskCreatePinnedToCore(
+    AnalogSimLoop,
+    "AnalogSimLoop",
+    2048,
+    NULL,
+    1,
+    nullptr,
+    app_cpu
+  );
+#endif
 
   // Measures MQTT publish 
   xTaskCreatePinnedToCore(

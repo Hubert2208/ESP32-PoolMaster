@@ -62,6 +62,28 @@
 #define SIMU_PH_LEVEL_VALUE   0     // Default: Low (tank not empty)
 #define SIMU_POOL_LEVEL_VALUE 1     // Default: HIGH (pool level OK)
 
+// ============================================================
+// ANALOG SIMULATION DYNAMICS (pH and ORP)
+// ============================================================
+// When a pump is active, the sensor value moves in the direction
+// the chemical causes. When the pump is off, the value drifts
+// naturally in the opposite direction.
+//
+// Update interval: Every 60 seconds (hardcoded in AnalogSimLoop)
+// ============================================================
+
+// pH simulation
+#define SIM_PH_ACTIVE_RATE    0.01  // pH decrease per minute when acid pump is ON
+#define SIM_PH_DRIFT_RATE     0.002 // pH increase per minute when acid pump is OFF (natural)
+#define SIM_PH_MIN            6.0   // Minimum simulated pH
+#define SIM_PH_MAX            8.5   // Maximum simulated pH
+
+// ORP simulation
+#define SIM_ORP_ACTIVE_RATE   2.0   // ORP increase per minute when chlorine pump is ON (mV)
+#define SIM_ORP_DRIFT_RATE    1.0   // ORP decrease per minute when chlorine pump is OFF (mV)
+#define SIM_ORP_MIN           400.0 // Minimum simulated ORP (mV)
+#define SIM_ORP_MAX           900.0 // Maximum simulated ORP (mV)
+
 // If you need to force network parameters (configuration with no screen)
 #define FORCE_NETWORK_PARAMS
 #ifdef FORCE_NETWORK_PARAMS

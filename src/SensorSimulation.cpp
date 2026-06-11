@@ -4,12 +4,19 @@
  * Each sensor can be independently simulated via Config.h flags.
  * Simulation values are configurable and can be changed at runtime.
  * 
- * When simulation is active, the simulated value replaces the real sensor value.
- * When simulation is not active, the real sensor value is used.
+ * Analog simulation (pH/ORP) is driven by pump states:
+ *   - Acid pump ON  -> pH decreases (acid effect)
+ *   - Acid pump OFF -> pH increases (natural drift)
+ *   - Chlorine pump ON  -> ORP increases (chlorine effect)
+ *   - Chlorine pump OFF -> ORP decreases (natural drift)
  */
 
 #include "SensorSimulation.h"
 #include "Config.h"
+
+#ifdef KC868_A8
+  #include "PoolMaster.h"  // For PhPump, ChlPump extern declarations
+#endif
 
 // Global instance
 SensorSimulation SimSensor;
@@ -67,6 +74,59 @@ void SensorSimulation::loop() {
     
     // Optional: Add dynamic simulation behavior here
     // For example, slowly ramp values or add noise
+}
+
+// ============================================================
+// Analog Simulation Update - Called every 60s by AnalogSimLoop
+// ============================================================
+// Checks pump states and adjusts pH/ORP values accordingly:
+//   - Acid pump ON  -> pH decreases (acid effect)
+//   - Acid pump OFF -> pH increases (natural drift)
+//   - Chlorine pump ON  -> ORP increases (chlorine effect)
+//   - Chlorine pump OFF -> ORP decreases (natural drift)
+// Values are clamped to SIM_PH_MIN/MAX and SIM_ORP_MIN/MAX.
+// ============================================================
+void SensorSimulation::updateAnalogSimulation() {
+#ifdef KC868_A8
+    bool phPumpOn = PhPump.IsRunning();
+    bool chlPumpOn = ChlPump.IsRunning();
+
+    Debug.print(DBG_INFO, "[AnalogSim] PhPump: %s | ChlPump: %s",
+        phPumpOn ? "ON" : "OFF",
+        chlPumpOn ? "ON" : "OFF");
+
+    // --- pH Simulation ---
+    if (simulating_ph) {
+        double oldPH = sim_ph_value;
+        if (phPumpOn) {
+            sim_ph_value -= SIM_PH_ACTIVE_RATE;
+            Debug.print(DBG_INFO, "[Sim] pH: %.3f -> %.3f (pump ON, -%.3f)",
+                oldPH, sim_ph_value, SIM_PH_ACTIVE_RATE);
+        } else {
+            sim_ph_value += SIM_PH_DRIFT_RATE;
+            Debug.print(DBG_INFO, "[Sim] pH: %.3f -> %.3f (pump OFF, +%.3f)",
+                oldPH, sim_ph_value, SIM_PH_DRIFT_RATE);
+        }
+        if (sim_ph_value < SIM_PH_MIN) sim_ph_value = SIM_PH_MIN;
+        if (sim_ph_value > SIM_PH_MAX) sim_ph_value = SIM_PH_MAX;
+    }
+
+    // --- ORP Simulation ---
+    if (simulating_orp) {
+        double oldORP = sim_orp_value;
+        if (chlPumpOn) {
+            sim_orp_value += SIM_ORP_ACTIVE_RATE;
+            Debug.print(DBG_INFO, "[Sim] ORP: %.1f -> %.1f (pump ON, +%.1f)",
+                oldORP, sim_orp_value, SIM_ORP_ACTIVE_RATE);
+        } else {
+            sim_orp_value -= SIM_ORP_DRIFT_RATE;
+            Debug.print(DBG_INFO, "[Sim] ORP: %.1f -> %.1f (pump OFF, -%.1f)",
+                oldORP, sim_orp_value, SIM_ORP_DRIFT_RATE);
+        }
+        if (sim_orp_value < SIM_ORP_MIN) sim_orp_value = SIM_ORP_MIN;
+        if (sim_orp_value > SIM_ORP_MAX) sim_orp_value = SIM_ORP_MAX;
+    }
+#endif
 }
 
 int8_t SensorSimulation::getSimulatedInput(uint8_t pin) {

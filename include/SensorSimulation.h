@@ -67,6 +67,12 @@ public:
     void setSimPoolLevel(bool active);
     
     // ============================================================
+    // Analog Simulation Update (called every 60s by AnalogSimLoop)
+    // ============================================================
+    // Checks pump states and adjusts pH/ORP values accordingly.
+    void updateAnalogSimulation();
+    
+    // ============================================================
     // Status
     // ============================================================
     bool isSimulating(uint8_t sensorType);

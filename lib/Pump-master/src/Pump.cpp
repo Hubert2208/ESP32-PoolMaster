@@ -72,9 +72,16 @@ u_int8_t Pump::Start(bool _resetUpTime)
   {
     if (!this->Relay::Enable()) {
       bitMaskErrors |= (1 << 3); // Bit 3: Relay error
+#ifdef KC868_A8
+      Serial.printf("[Pump::Start] pin=%d Relay Enable FAILED! bits=0x%02X\r\n",
+        GetPinNumber(), bitMaskErrors);
+#endif
       return bitMaskErrors;
     } else {
       LastLoopMillis = StartTime = millis(); 
+#ifdef KC868_A8
+      Serial.printf("[Pump::Start] pin=%d Pump STARTED OK\r\n", GetPinNumber());
+#endif
     }
   }
   return bitMaskErrors;
@@ -158,7 +165,7 @@ double Pump::GetTankUsage()
     double Consumption = flowrate/60.0*MinutesOfUpTime;
     PercentageUsed = Consumption/tankvolume*100.0;
   }
-  return (PercentageUsed); 
+  return (PercentageUsed);
 }
 
 //Set flow rate of the pump in Liters/hour
@@ -189,10 +196,11 @@ void Pump::SetMinUpTime(unsigned long _minuptime)
 //This is typically called every day at midnight
 void Pump::ResetUpTime()
 {
-  StartTime = LastLoopMillis = 0;
+  StartTime = 0;
   StopTime = 0;
   UpTime = 0;
   CurrMaxUpTime = MaxUpTime;
+  LastLoopMillis = millis();  // FIX: preserve millis() reference to avoid jump in UpTime calculation
 }
 
 //Clear "UpTimeError" error flag and allow the pump to run for an extra MaxUpTime
