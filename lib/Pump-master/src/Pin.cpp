@@ -62,8 +62,14 @@ void PIN::Begin()
 //Switch the PIN ON
 void PIN::Enable()
 {
-  if (pin_number != 0)
-  {
+  if (pin_number != 0) {
+#ifdef KC868_A8
+    // KC868: virtual relay pins (100-107) — control via I2C expander
+    if (pin_number >= 100 && pin_number <= 107) {
+      KC868.setRelay(pin_number - 100, true);
+      return;
+    }
+#endif
     digitalWrite(pin_number, active_level);
   }
 }
@@ -71,8 +77,14 @@ void PIN::Enable()
 //Switch the PIN OFF
 void PIN::Disable()
 {
-  if (pin_number != 0)
-  {
+  if (pin_number != 0) {
+#ifdef KC868_A8
+    // KC868: virtual relay pins (100-107) — control via I2C expander
+    if (pin_number >= 100 && pin_number <= 107) {
+      KC868.setRelay(pin_number - 100, false);
+      return;
+    }
+#endif
     digitalWrite(pin_number, !active_level);
   }
 }
