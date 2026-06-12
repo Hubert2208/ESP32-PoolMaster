@@ -17,7 +17,14 @@ void PIN::Initialize(uint8_t _pin_number, uint8_t _pin_direction, bool _active_l
   // Set variables
   if((_pin_number != pin_number) && (_pin_direction != INPUT_DIGITAL) && ((pin_direction==OUTPUT_DIGITAL)||(pin_direction==OUTPUT_PWM))) { // If we changed port
     if(_pin_number != 0) {
+#ifdef KC868_A8
+      // KC868: virtual pins (100+) — managed by I/O layer, skip raw GPIO
+      if (pin_number < 100) {
+#endif
       digitalWrite(pin_number,!active_level); // Inactivate the previous port
+#ifdef KC868_A8
+      }
+#endif
       // IMPORTANT NOTE: Always change pin number in following order
       //  ->SetPinNumber
       //  ->SetActiveLevel
@@ -36,7 +43,14 @@ void PIN::Begin()
   //("Call Begin %d (%d)\r\n",pin_number,pin_direction);
   if(pin_number!=0) {
     // Open the port for OUTPUT and set it to down state
-    if(pin_direction==OUTPUT_DIGITAL) {  
+    if(pin_direction==OUTPUT_DIGITAL) {
+#ifdef KC868_A8
+      // KC868: virtual pins (100+) are managed by the I/O layer via setRelay()
+      // Skip raw pinMode/digitalWrite — they hit unconnected GPIOs, not the I2C expander
+      if (pin_number >= 100) {
+        return;
+      }
+#endif
       pinMode(pin_number, OUTPUT);
       digitalWrite(pin_number,!active_level); // Initialize the port to inactive
     } else if(pin_direction==INPUT_DIGITAL) {
@@ -111,11 +125,15 @@ bool PIN::IsActive()
 {
   if (pin_number != 0) {
 #ifdef KC868_A8
-    // Check simulation first: if simulation is active for this pin,
-    // use the simulated value instead of reading the physical pin.
-    int8_t simVal = SimSensor.getSimulatedInput(pin_number);
-    if (simVal >= 0) {
-        return (simVal == HIGH);  // Simulated value: HIGH = active
+    // KC868: virtual relay pins (100-107) — read from KC868 I/O layer, not raw GPIO
+    // Raw GPIO is unconnected to the I2C expander; KC868.digitalRead() returns 0
+    // when not initialized, causing IsActive() to always return true for ACTIVE_LOW
+    if (pin_number >= 100 && pin_number <= 107) {
+      return KC868.getRelay(pin_number - 100);
+    }
+    // KC868: virtual input pins (110-117) — read via KC868 I/O layer
+    if (pin_number >= 110 && pin_number <= 117) {
+      return KC868.getInput(pin_number - 110);
     }
 #endif
     return (digitalRead(pin_number) == active_level);

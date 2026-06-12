@@ -41,7 +41,7 @@ bool MDNSStatus = false;
 bool AntiFreezeFiltering = false;               // Filtration anti freeze mode
 //bool EmergencyStopFiltPump = false;             // flag will be (re)set by double-tapp button
 bool PSIError = false;                          // Water pressure OK
-bool cleaning_done = false;                     // daily cleaning done   
+cleaning_done = false;                     // daily cleaning done   
 
 // NTP & MQTT Connected
 bool PoolMaster_BoardReady = false;      // Is Board Up
@@ -57,9 +57,9 @@ QueueHandle_t queueIn;
 // NVS Non Volatile SRAM (eqv. EEPROM)
 Preferences nvs;      
 
-// Instanciations of Pump and PID objects to make them global. But the constructors are then called 
+// Instanciations of Pump and PID objects to make them global. But the constructors are then called
 // before loading of the storage struct. At run time, the attributes take the default
-// values of the storage struct as they are compiled, just a few lines above, and not those which will 
+// values of the storage struct as they are compiled, just a few lines above, and not those which will
 // be read from NVS later. This means that the correct objects attributes must be set later in
 // the setup function (fortunatelly, init methods exist).
 
@@ -75,7 +75,6 @@ Preferences nvs;
 //    5/ Tankvolume is used to compute the percentage of tank used/remaining
 // IMPORTANT NOTE: second argument is ID and MUST correspond to the equipment index in the "Pool_Equipment" vector
 // FiltrationPump: This Pump controls the filtration, no tank attached and not interlocked to any element. SSD relay attached works with HIGH level.
-
 Pump FiltrationPump(FILTRATION);
 // pHPump: This Pump has no low-level switch so remaining volume is estimated. It is interlocked with the relay of the FilrationPump
 //Pump PhPump(PH_PUMP, PH_LEVEL, ACTIVE_LOW, MODE_LATCHING, storage.pHPumpFR, storage.pHTankVol, storage.AcidFill);
@@ -86,7 +85,7 @@ Pump ChlPump(CHL_PUMP,CHL_LEVEL);
 // RobotPump: This Pump is not injecting liquid so tank is associated to it. It is interlocked with the relay of the FilrationPump
 Pump RobotPump(ROBOT);
 // SWG: This Pump is associated with a Salt Water Chlorine Generator. It turns on and off the equipment to produce chlorine.
-// It has no tank associated. It is interlocked with the relay of the FilrationPump
+// It has no tank associated. It is interlocked with the relay of the FiltrationPump
 Pump SWGPump(SWG_PUMP);
 // Filling Pump: This pump is autonomous, not interlocked with filtering pump.
 Pump FillingPump(FILL_PUMP);
@@ -113,7 +112,7 @@ PID OrpPID(&PMData.OrpValue, &PMData.OrpPIDOutput, &PMData.Orp_SetPoint, 0, 0, 0
 static TaskHandle_t pubSetTaskHandle;
 static TaskHandle_t pubMeasTaskHandle;
 
-// Used for ElegantOTA
+// For ElegantOTA
 //unsigned long ota_progress_millis = 0;
 
 // Configuration Manager
@@ -164,7 +163,7 @@ void HistoryStats(void *);
 // For ElegantOTA
 /*void onOTAStart(void);
 void onOTAProgress(size_t,size_t);
-void onOTAEnd(bool);*/
+void onOTAEnd(void);*/
 
 // Setup
 void setup()
@@ -283,14 +282,11 @@ void setup()
   PMConfig.printAllParams(); // Print all parameters to Serial for debug
 
 #ifdef KC868_A8
-  // Initialize KC868-A8 I/O layer (PCF8574 expanders)
-  KC868.begin();
-  
-  // Initialize sensor simulation system
+  // Initialize sensor simulation system (before KC868 I/O layer)
   SimSensor.begin();
 #endif
 
-  //Define pins directions
+  // Define pins directions
 #if BUZZER != 255
   pinMode(BUZZER, OUTPUT);
 #endif
@@ -316,7 +312,7 @@ void setup()
   ChlPump.SetInterlock(DEVICE_FILTPUMP); // Chlorine Pump interlocked with Filtration Pump
   RobotPump.SetInterlock(DEVICE_FILTPUMP); // Robot Pump interlocked with Filtration Pump
   SWGPump.SetInterlock(DEVICE_FILTPUMP); // SWG Pump interlocked
-  
+
   // Default values for the pumps
   FillingPump.SetMinUpTime(5*60*1000);  // Minimum running uptime for Filling Pump is 5 minutes (avoir short runs)
   FiltrationPump.SetMaxUpTime(0); // No Maximum uptime for Filtration Pump
@@ -342,7 +338,6 @@ void setup()
   // Load configuration parameters from NVS for all devices
   PoolDeviceManager.LoadPreferences();
   PoolDeviceManager.InitDevicesInterlock();
-  PoolDeviceManager.Begin();
 
   // Initialize watch-dog
   esp_task_wdt_init(WDT_TIMEOUT, true);
@@ -362,7 +357,7 @@ void setup()
     delay(500);
     Serial.print(".");
   }
-  
+
   // Start I2C for ADS1115 and status lights through PCF8574A
   Wire.begin(I2C_SDA,I2C_SCL);
 
@@ -378,13 +373,20 @@ void setup()
   Wire.endTransmission();
 
 #ifdef KC868_A8
-  // Wire is now initialized — explicitly turn all relays OFF.
-  // KC868.begin() ran before Wire.begin() so its I2C write never reached hardware.
+  // Initialize KC868-A8 I/O layer AFTER Wire.begin() — I2C must be ready
+  // so that the relay OFF command actually reaches the PCF8574 hardware.
+  KC868.begin();
+
+  // Explicitly turn all relays OFF.
   for (uint8_t i = 0; i < 8; i++) {
-    KC868.setRelay(i, true);
+    KC868.setRelay(i, false);
   }
   Debug.print(DBG_INFO,"[KC868-A8] All relays set to OFF (boot reset)");
 #endif
+
+  // Now initialize devices — Begin() writes to KC868 I/O layer which
+  // is ready (initialized=true) since KC868.begin() ran above.
+  PoolDeviceManager.Begin();
 
   // Initialize PIDs
   PMData.PhPIDwStart  = millis();
@@ -460,7 +462,7 @@ void setup()
     nullptr,
     app_cpu
   );
-  
+
  // ORP regulation loop
     xTaskCreatePinnedToCore(
     OrpRegulation,
@@ -484,7 +486,7 @@ void setup()
   );
 
   // Status lights display
-  xTaskCreatePinnedToCore(
+    xTaskCreatePinnedToCore(
     StatusLights,
     "StatusLights",
     2048,
@@ -575,7 +577,7 @@ void setup()
   ArduinoOTA.setPort(OTA_PORT);
   ArduinoOTA.setHostname("PoolMaster");
   ArduinoOTA.setPasswordHash(OTA_PWDHASH);
-  
+
   ArduinoOTA.onStart([]() {
     String type;
     if (ArduinoOTA.getCommand() == U_FLASH)
@@ -700,4 +702,3 @@ void loop()
   delay(1000);
   vTaskDelete(nullptr);
 }
-
