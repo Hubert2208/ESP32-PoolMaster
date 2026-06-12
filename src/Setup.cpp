@@ -57,9 +57,9 @@ QueueHandle_t queueIn;
 // NVS Non Volatile SRAM (eqv. EEPROM)
 Preferences nvs;      
 
-// Instanciations of Pump and PID objects to make them global. But the constructors are then called
+// Instanciations of Pump and PID objects to make them global. But the constructors are then called 
 // before loading of the storage struct. At run time, the attributes take the default
-// values of the storage struct as they are compiled, just a few lines above, and not those which will
+// values of the storage struct as they are compiled, just a few lines above, and not those which will 
 // be read from NVS later. This means that the correct objects attributes must be set later in
 // the setup function (fortunatelly, init methods exist).
 
@@ -112,7 +112,7 @@ PID OrpPID(&PMData.OrpValue, &PMData.OrpPIDOutput, &PMData.Orp_SetPoint, 0, 0, 0
 static TaskHandle_t pubSetTaskHandle;
 static TaskHandle_t pubMeasTaskHandle;
 
-// For ElegantOTA
+// Used for ElegantOTA
 //unsigned long ota_progress_millis = 0;
 
 // Configuration Manager
@@ -163,7 +163,7 @@ void HistoryStats(void *);
 // For ElegantOTA
 /*void onOTAStart(void);
 void onOTAProgress(size_t,size_t);
-void onOTAEnd(void);*/
+void onOTAEnd(bool);*/
 
 // Setup
 void setup()
@@ -282,11 +282,14 @@ void setup()
   PMConfig.printAllParams(); // Print all parameters to Serial for debug
 
 #ifdef KC868_A8
-  // Initialize sensor simulation system (before KC868 I/O layer)
+  // Initialize KC868-A8 I/O layer (PCF8574 expanders)
+  KC868.begin();
+  
+  // Initialize sensor simulation system
   SimSensor.begin();
 #endif
 
-  // Define pins directions
+  //Define pins directions
 #if BUZZER != 255
   pinMode(BUZZER, OUTPUT);
 #endif
@@ -312,7 +315,7 @@ void setup()
   ChlPump.SetInterlock(DEVICE_FILTPUMP); // Chlorine Pump interlocked with Filtration Pump
   RobotPump.SetInterlock(DEVICE_FILTPUMP); // Robot Pump interlocked with Filtration Pump
   SWGPump.SetInterlock(DEVICE_FILTPUMP); // SWG Pump interlocked
-
+  
   // Default values for the pumps
   FillingPump.SetMinUpTime(5*60*1000);  // Minimum running uptime for Filling Pump is 5 minutes (avoir short runs)
   FiltrationPump.SetMaxUpTime(0); // No Maximum uptime for Filtration Pump
@@ -338,6 +341,7 @@ void setup()
   // Load configuration parameters from NVS for all devices
   PoolDeviceManager.LoadPreferences();
   PoolDeviceManager.InitDevicesInterlock();
+  PoolDeviceManager.Begin();
 
   // Initialize watch-dog
   esp_task_wdt_init(WDT_TIMEOUT, true);
@@ -357,7 +361,7 @@ void setup()
     delay(500);
     Serial.print(".");
   }
-
+  
   // Start I2C for ADS1115 and status lights through PCF8574A
   Wire.begin(I2C_SDA,I2C_SCL);
 
@@ -373,20 +377,13 @@ void setup()
   Wire.endTransmission();
 
 #ifdef KC868_A8
-  // Initialize KC868-A8 I/O layer AFTER Wire.begin() — I2C must be ready
-  // so that the relay OFF command actually reaches the PCF8574 hardware.
-  KC868.begin();
-
-  // Explicitly turn all relays OFF.
+  // Wire is now initialized — explicitly turn all relays OFF.
+  // KC868.begin() ran before Wire.begin() so its I2C write never reached hardware.
   for (uint8_t i = 0; i < 8; i++) {
-    KC868.setRelay(i, false);
+    KC868.setRelay(i, true);
   }
   Debug.print(DBG_INFO,"[KC868-A8] All relays set to OFF (boot reset)");
 #endif
-
-  // Now initialize devices — Begin() writes to KC868 I/O layer which
-  // is ready (initialized=true) since KC868.begin() ran above.
-  PoolDeviceManager.Begin();
 
   // Initialize PIDs
   PMData.PhPIDwStart  = millis();
@@ -462,7 +459,7 @@ void setup()
     nullptr,
     app_cpu
   );
-
+  
  // ORP regulation loop
     xTaskCreatePinnedToCore(
     OrpRegulation,
@@ -486,7 +483,7 @@ void setup()
   );
 
   // Status lights display
-    xTaskCreatePinnedToCore(
+  xTaskCreatePinnedToCore(
     StatusLights,
     "StatusLights",
     2048,
@@ -577,7 +574,7 @@ void setup()
   ArduinoOTA.setPort(OTA_PORT);
   ArduinoOTA.setHostname("PoolMaster");
   ArduinoOTA.setPasswordHash(OTA_PWDHASH);
-
+  
   ArduinoOTA.onStart([]() {
     String type;
     if (ArduinoOTA.getCommand() == U_FLASH)
