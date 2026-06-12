@@ -41,7 +41,7 @@ bool MDNSStatus = false;
 bool AntiFreezeFiltering = false;               // Filtration anti freeze mode
 //bool EmergencyStopFiltPump = false;             // flag will be (re)set by double-tapp button
 bool PSIError = false;                          // Water pressure OK
-cleaning_done = false;                     // daily cleaning done   
+bool cleaning_done = false;                     // daily cleaning done   
 
 // NTP & MQTT Connected
 bool PoolMaster_BoardReady = false;      // Is Board Up
