@@ -4,7 +4,9 @@
  * Hardware:
  *   PCF8574 @ 0x24: 8-bit I/O expander for relay outputs
  *     - ULN2003A driver: HIGH on PCF8574 = relay ON, LOW = relay OFF
- *     - Active HIGH logic
+ *     - Physical: active HIGH (PCF8574 HIGH → relay ON)
+ *     - digitalWrite/digitalRead: inverted for Pump-master ACTIVE_LOW compat
+ *       (value 0 = relay ON, value 1 = relay OFF)
  * 
  *   PCF8574 @ 0x22: 8-bit I/O expander for digital inputs
  *     - Optocoupled inputs: LOW when triggered (circuit closed)
@@ -71,12 +73,13 @@ void KC868A8_IO::digitalWrite(uint8_t pin, uint8_t value) {
     
     if (IS_KC868_RELAY_PIN(pin)) {
         uint8_t bit = pin - 100;
+        // Inverted for Pump-master ACTIVE_LOW compatibility:
+        // value 0 → relay ON (PCF8574 HIGH via ULN2003A)
+        // value 1 → relay OFF (PCF8574 LOW)
         if (value) {
-            // Relay ON → PCF8574 bit HIGH
-            relayState |= (1 << bit);
+            relayState &= ~(1 << bit);   // value=1 → relay OFF
         } else {
-            // Relay OFF → PCF8574 bit LOW
-            relayState &= ~(1 << bit);
+            relayState |= (1 << bit);    // value=0 → relay ON
         }
         writeOutputs();
     }
@@ -93,9 +96,10 @@ uint8_t KC868A8_IO::digitalRead(uint8_t pin) {
     }
     
     if (IS_KC868_RELAY_PIN(pin)) {
-        // Read current relay state
+        // Inverted for Pump-master ACTIVE_LOW compatibility:
+        // returns 0 when relay is ON, 1 when relay is OFF
         uint8_t bit = pin - 100;
-        return (relayState >> bit) & 1;  // HIGH = relay ON
+        return !((relayState >> bit) & 1);
     }
     
     return 0;
