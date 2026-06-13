@@ -283,11 +283,7 @@ void setup()
   PMConfig.printAllParams(); // Print all parameters to Serial for debug
 
 #ifdef KC868_A8
-  // Initialize KC868-A8 I/O layer (PCF8574 expanders)
-  KC868.begin();
-  
-  // Initialize sensor simulation system
-  SimSensor.begin();
+  // KC868.begin() deferred to after Wire.begin() — I2C must be initialized first
 #endif
 
   //Define pins directions
@@ -378,12 +374,12 @@ void setup()
   Wire.endTransmission();
 
 #ifdef KC868_A8
-  // Wire is now initialized — explicitly turn all relays OFF.
-  // KC868.begin() ran before Wire.begin() so its I2C write never reached hardware.
-  for (uint8_t i = 0; i < 8; i++) {
-    KC868.setRelay(i, true);
-  }
-  Debug.print(DBG_INFO,"[KC868-A8] All relays set to OFF (boot reset)");
+  // Initialize KC868-A8 I/O layer (PCF8574 expanders)
+  // KC868.begin() initializes I2C expanders — must run after Wire.begin()
+  KC868.begin();
+  
+  // Initialize sensor simulation system
+  SimSensor.begin();
 #endif
 
   // Initialize PIDs
