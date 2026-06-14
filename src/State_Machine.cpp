@@ -1,6 +1,16 @@
 // File to store all states
 #include "State_Machine.h"
 
+// Helper to format uptime in human-readable format
+static void printUptime(unsigned long ms, const char* prefix) {
+  unsigned long sec = ms / 1000;
+  unsigned long min = sec / 60;
+  unsigned long hrs = min / 60;
+  sec %= 60;
+  min %= 60;
+  Debug.print(DBG_INFO, "[LOGIC] %s Board uptime: %luh %02lum %02lus", prefix, hrs, min, sec);
+}
+
 bool FillingPump_StartCondition()
 {
   // Check water level (HIGH means that jumper is opened)
@@ -128,15 +138,47 @@ bool SWGPump_StopCondition() {
   return false; // SWG Pump should not start if Electrolyse mode is OFF
 }
 
-// What to do when the pump starts or stops (only message displayed on console but could be used to trigger other actions)
-void FiltrationPump_StartAction(void) { Debug.print(DBG_INFO,"[LOGIC] Start %s",FiltrationPump.GetName()); }
-void FiltrationPump_StopAction(void) { Debug.print(DBG_INFO,"[LOGIC] Stop %s",FiltrationPump.GetName()); }
+// What to do when the pump starts or stops
+// Debug logging: pump runtime + board uptime
+void FiltrationPump_StartAction(void) {
+  Debug.print(DBG_INFO, "[LOGIC] Start %s", FiltrationPump.GetName());
+  printUptime(millis(), "[FiltrationPump START]");
+}
+void FiltrationPump_StopAction(void) {
+  unsigned long runtime_ms = millis() - FiltrationPump.StartTime;
+  unsigned long runtime_sec = runtime_ms / 1000;
+  Debug.print(DBG_INFO, "[LOGIC] Stop %s -- ran for %lum %02lus", FiltrationPump.GetName(), runtime_sec / 60, runtime_sec % 60);
+  printUptime(millis(), "[FiltrationPump STOP]");
+}
 
-void RobotPump_StartAction(void) { Debug.print(DBG_INFO,"[LOGIC] Start %s",RobotPump.GetName()); }
-void RobotPump_StopAction(void) { Debug.print(DBG_INFO,"[LOGIC] Stop %s",RobotPump.GetName()); RobotPump.ResetUpTime(); cleaning_done = true; }
+void RobotPump_StartAction(void) {
+  Debug.print(DBG_INFO, "[LOGIC] Start %s", RobotPump.GetName());
+  printUptime(millis(), "[RobotPump START]");
+}
+void RobotPump_StopAction(void) {
+  unsigned long runtime_sec = RobotPump.GetUpTime(); // already in seconds
+  Debug.print(DBG_INFO, "[LOGIC] Stop %s -- ran for %lum %02lus", RobotPump.GetName(), runtime_sec / 60, runtime_sec % 60);
+  printUptime(millis(), "[RobotPump STOP]");
+  RobotPump.ResetUpTime();
+  cleaning_done = true;
+}
 
-void SWGPump_StartAction(void) { Debug.print(DBG_INFO,"[LOGIC] Start %s",SWGPump.GetName()); }
-void SWGPump_StopAction(void) { Debug.print(DBG_INFO,"[LOGIC] Stop %s",SWGPump.GetName()); }
+void SWGPump_StartAction(void) {
+  Debug.print(DBG_INFO, "[LOGIC] Start %s", SWGPump.GetName());
+  printUptime(millis(), "[SWGPump START]");
+}
+void SWGPump_StopAction(void) {
+  unsigned long runtime_sec = SWGPump.GetUpTime(); // already in seconds
+  Debug.print(DBG_INFO, "[LOGIC] Stop %s -- ran for %lum %02lus", SWGPump.GetName(), runtime_sec / 60, runtime_sec % 60);
+  printUptime(millis(), "[SWGPump STOP]");
+}
 
-void FillingPump_StartAction(void) { Debug.print(DBG_INFO,"[LOGIC] Start %s",FillingPump.GetName()); }
-void FillingPump_StopAction(void) { Debug.print(DBG_INFO,"[LOGIC] Stop %s",FillingPump.GetName()); }
+void FillingPump_StartAction(void) {
+  Debug.print(DBG_INFO, "[LOGIC] Start %s", FillingPump.GetName());
+  printUptime(millis(), "[FillingPump START]");
+}
+void FillingPump_StopAction(void) {
+  unsigned long runtime_sec = FillingPump.GetUpTime(); // already in seconds
+  Debug.print(DBG_INFO, "[LOGIC] Stop %s -- ran for %lum %02lus", FillingPump.GetName(), runtime_sec / 60, runtime_sec % 60);
+  printUptime(millis(), "[FillingPump STOP]");
+}
