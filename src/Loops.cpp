@@ -2,6 +2,16 @@
 #include "Config.h"
 #include "PoolMaster.h"
 
+// Helper to format uptime in human-readable format
+static void printUptime(unsigned long ms, const char* prefix) {
+  unsigned long sec = ms / 1000;
+  unsigned long min = sec / 60;
+  unsigned long hrs = min / 60;
+  sec %= 60;
+  min %= 60;
+  Debug.print(DBG_INFO, "[LOGIC] %s Board uptime: %luh %02lum %02lus", prefix, hrs, min, sec);
+}
+
 #ifdef KC868_A8
   #include "SensorSimulation.h"
 #endif
@@ -304,6 +314,20 @@ void pHRegulation(void *pvParameters)
         PMData.PhPIDOutput = 0.0;
         PhPump.Stop();
       } 
+      // Debug: log pH pump start/stop with runtime and board uptime
+      {
+        static bool phPumpWasRunning = false;
+        bool phPumpRunning = PhPump.IsRunning();
+        if (phPumpRunning && !phPumpWasRunning) {
+          Debug.print(DBG_INFO, "[LOGIC] pH Pump START");
+          printUptime(millis(), "[PhPump START]");
+        } else if (!phPumpRunning && phPumpWasRunning) {
+          unsigned long runtime_sec = PhPump.GetUpTime();
+          Debug.print(DBG_INFO, "[LOGIC] pH Pump STOP -- ran for %lum %02lus", runtime_sec / 60, runtime_sec % 60);
+          printUptime(millis(), "[PhPump STOP]");
+        }
+        phPumpWasRunning = phPumpRunning;
+      }
     }
 
     stack_mon(hwm);
@@ -354,6 +378,20 @@ void OrpRegulation(void *pvParameters)
         PMData.OrpPIDOutput = 0.0;
         ChlPump.Stop();
       } 
+      // Debug: log Chlor pump start/stop with runtime and board uptime
+      {
+        static bool chlPumpWasRunning = false;
+        bool chlPumpRunning = ChlPump.IsRunning();
+        if (chlPumpRunning && !chlPumpWasRunning) {
+          Debug.print(DBG_INFO, "[LOGIC] Chlor Pump START");
+          printUptime(millis(), "[ChlPump START]");
+        } else if (!chlPumpRunning && chlPumpWasRunning) {
+          unsigned long runtime_sec = ChlPump.GetUpTime();
+          Debug.print(DBG_INFO, "[LOGIC] Chlor Pump STOP -- ran for %lum %02lus", runtime_sec / 60, runtime_sec % 60);
+          printUptime(millis(), "[ChlPump STOP]");
+        }
+        chlPumpWasRunning = chlPumpRunning;
+      }
     }
 
     stack_mon(hwm);    
