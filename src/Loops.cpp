@@ -326,6 +326,7 @@ void pHRegulation(void *pvParameters)
           unsigned long runtime_sec = PhPump.GetUpTime();
           Debug.print(DBG_INFO, "[LOGIC] pH Pump STOP -- ran for %lum %02lus", runtime_sec / 60, runtime_sec % 60);
           printUptime(millis(), "[PhPump STOP]");
+          PhPump.ResetUpTime();
         }
         phPumpWasRunning = phPumpRunning;
       }
@@ -391,6 +392,7 @@ void OrpRegulation(void *pvParameters)
           unsigned long runtime_sec = ChlPump.GetUpTime();
           Debug.print(DBG_INFO, "[LOGIC] Chlor Pump STOP -- ran for %lum %02lus", runtime_sec / 60, runtime_sec % 60);
           printUptime(millis(), "[ChlPump STOP]");
+          ChlPump.ResetUpTime();
         }
         chlPumpWasRunning = chlPumpRunning;
       }
