@@ -9,6 +9,19 @@
 void Pump::loop()
 {
   u_int8_t bitMaskErrors = 0;
+
+  // DEBUG: log pump state for all pumps every ~30s
+  {
+      static unsigned long lastStatePin[32] = {0};
+      uint8_t pn = GetPinNumber();
+      unsigned long nowMs = millis();
+      if (pn >= 100 && pn <= 131 && (lastStatePin[pn-100] == 0 || nowMs - lastStatePin[pn-100] >= 30000)) {
+          lastStatePin[pn-100] = nowMs;
+          Serial.printf("[PumpStates] pin=%d enables=%s upTime=%lu\r\n",
+              pn, IsRunning() ? "ON" : "OFF", UpTime);
+      }
+  }
+
   // Call the loop handler if it exists, if the pump is not running
   // and only if the interlock pump is running (if it exists)
   if (interlock_pump_ == nullptr || (interlock_pump_ != nullptr && interlock_pump_->IsEnabled())) {
@@ -35,12 +48,15 @@ void Pump::loop()
     UpTime += millis() - LastLoopMillis;
     LastLoopMillis = millis();
 
-    // Debug: log IsRunning state every ~5s to detect phantom running
+    // Debug: log IsRunning state every ~5s per pump instance
     {
-        static unsigned long lastRunLog = 0;
+        static unsigned long lastLogByPin[32] = {0};
         uint8_t pn = GetPinNumber();
-        if (pn != 0 && millis() - lastRunLog >= 5000) {
-            lastRunLog = millis();
+        unsigned long now = millis();
+        // Use pin number as index into a fixed array (safe: pin 100-131)
+        uint8_t idx = pn - 100;
+        if (pn >= 100 && pn <= 131 && (lastLogByPin[idx] == 0 || now - lastLogByPin[idx] >= 5000)) {
+            lastLogByPin[idx] = now;
             Serial.printf("[Pump::loop] pin=%d IsRunning=true activeLvl=%d digRead=%d UpTime=%lu\r\n",
                 pn, GetActiveLevel(), digitalRead(pn), UpTime);
         }
