@@ -314,9 +314,14 @@ void pHRegulation(void *pvParameters)
         PMData.PhPIDOutput = 0.0;
         PhPump.Stop();
       } 
-      // Debug: log pH pump start/stop with runtime and board uptime
-      // Note: at START we log 0m 00s (pump just began), at STOP we use
-      // millis() - StartTime for the actual runtime since last start.
+      // Debug: log pH pump start/stop with daily cumulative runtime
+      //
+      // UpTime accumulates in Pump::loop() while running and Pump::Stop() adds the
+      // final increment. GetUpTime() returns the total runtime since midnight
+      // (reset by PoolDeviceManager.ResetUptimes()).
+      //
+      // MaxUpTime (default 30 min) stops the pump and sets UpTimeError if the
+      // daily limit is exceeded — this is handled automatically by Pump::loop().
       {
         static bool phPumpWasRunning = false;
         bool phPumpRunning = PhPump.IsRunning();
@@ -324,11 +329,12 @@ void pHRegulation(void *pvParameters)
           Debug.print(DBG_INFO, "[LOGIC] pH Pump START -- ran for 0m 00s");
           printUptime(millis(), "[PhPump START]");
         } else if (!phPumpRunning && phPumpWasRunning) {
-          unsigned long runtime_ms = millis() - PhPump.StartTime;
-          unsigned long runtime_sec = runtime_ms / 1000;
-          Debug.print(DBG_INFO, "[LOGIC] pH Pump STOP -- ran for %lum %02lus", runtime_sec / 60, runtime_sec % 60);
+          unsigned long cumul_sec = PhPump.GetUpTime();
+          Debug.print(DBG_INFO, "[LOGIC] pH Pump STOP -- total today: %lum %02lus", cumul_sec / 60, cumul_sec % 60);
           printUptime(millis(), "[PhPump STOP]");
-          PhPump.ResetUpTime();
+          // ResetUpTime() NOT called here — cumulative daily runtime is reset
+          // at midnight by PoolDeviceManager.ResetUptimes().
+          // MaxUpTime (default 30 min) provides safety via Pump::loop().
         }
         phPumpWasRunning = phPumpRunning;
       }
@@ -368,7 +374,6 @@ void OrpRegulation(void *pvParameters)
         if (now - PMData.OrpPIDwStart > wSize)
         {
           //time to shift the Relay Window
-          PMData.OrpPIDwStart += wSize;
         }
         if ((unsigned long)PMData.OrpPIDOutput <= now - PMData.OrpPIDwStart) {
           ChlPump.Stop();
@@ -382,9 +387,7 @@ void OrpRegulation(void *pvParameters)
         PMData.OrpPIDOutput = 0.0;
         ChlPump.Stop();
       } 
-      // Debug: log Chlor pump start/stop with runtime and board uptime
-      // Note: at START we log 0m 00s (pump just began), at STOP we use
-      // millis() - StartTime for the actual runtime since last start.
+      // Debug: log Chlor pump start/stop with daily cumulative runtime
       {
         static bool chlPumpWasRunning = false;
         bool chlPumpRunning = ChlPump.IsRunning();
@@ -392,11 +395,11 @@ void OrpRegulation(void *pvParameters)
           Debug.print(DBG_INFO, "[LOGIC] Chlor Pump START -- ran for 0m 00s");
           printUptime(millis(), "[ChlPump START]");
         } else if (!chlPumpRunning && chlPumpWasRunning) {
-          unsigned long runtime_ms = millis() - ChlPump.StartTime;
-          unsigned long runtime_sec = runtime_ms / 1000;
-          Debug.print(DBG_INFO, "[LOGIC] Chlor Pump STOP -- ran for %lum %02lus", runtime_sec / 60, runtime_sec % 60);
+          unsigned long cumul_sec = ChlPump.GetUpTime();
+          Debug.print(DBG_INFO, "[LOGIC] Chlor Pump STOP -- total today: %lum %02lus", cumul_sec / 60, cumul_sec % 60);
           printUptime(millis(), "[ChlPump STOP]");
-          ChlPump.ResetUpTime();
+          // ResetUpTime() NOT called here — cumulative daily runtime is reset
+          // at midnight by PoolDeviceManager.ResetUptimes().
         }
         chlPumpWasRunning = chlPumpRunning;
       }
