@@ -10,18 +10,6 @@ void Pump::loop()
 {
   u_int8_t bitMaskErrors = 0;
 
-  // DEBUG: log pump state for all pumps every ~30s
-  {
-      static unsigned long lastStatePin[32] = {0};
-      uint8_t pn = GetPinNumber();
-      unsigned long nowMs = millis();
-      if (pn >= 100 && pn <= 131 && (lastStatePin[pn-100] == 0 || nowMs - lastStatePin[pn-100] >= 30000)) {
-          lastStatePin[pn-100] = nowMs;
-          Serial.printf("[PumpStates] pin=%d enables=%s upTime=%lu\r\n",
-              pn, IsRunning() ? "ON" : "OFF", UpTime);
-      }
-  }
-
   // Call the loop handler if it exists, if the pump is not running
   // and only if the interlock pump is running (if it exists)
   if (interlock_pump_ == nullptr || (interlock_pump_ != nullptr && interlock_pump_->IsEnabled())) {

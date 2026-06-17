@@ -57,7 +57,7 @@ class Pump : public Relay {
 
     void loop();
 
-    u_int8_t Start(bool _resetUpTime = false); // Start the pump, reset UpTime if ResetUpTime is true
+    u_int8_t Start(bool _resetUpTime = true); // Start the pump, reset UpTime if ResetUpTime is true
     bool Stop(); 
 
     bool IsRunning();
