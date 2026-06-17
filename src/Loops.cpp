@@ -1,15 +1,6 @@
 #include <Arduino.h>                // Arduino framework
 #include "Config.h"
 #include "PoolMaster.h"
-
-// Helper to format uptime in human-readable format
-static void printUptime(unsigned long ms, const char* prefix) {
-  unsigned long sec = ms / 1000;
-  unsigned long min = sec / 60;
-  unsigned long hrs = min / 60;
-  sec %= 60;
-  min %= 60;
-  Debug.print(DBG_INFO, "[LOGIC] %s Board uptime: %luh %02lum %02lus", prefix, hrs, min, sec);
 }
 
 #ifdef KC868_A8
@@ -314,33 +305,18 @@ void pHRegulation(void *pvParameters)
         PMData.PhPIDOutput = 0.0;
         PhPump.Stop();
       } 
-      // Debug: log pH pump start/stop with daily cumulative runtime
-      //
-      // UpTime accumulates in Pump::loop() while running and Pump::Stop() adds the
-      // final increment. GetUpTime() returns the total runtime since midnight
-      // (reset by PoolDeviceManager.ResetUptimes()).
-      //
-      // MaxUpTime (default 30 min) stops the pump and sets UpTimeError if the
-      // daily limit is exceeded — this is handled automatically by Pump::loop().
+      // Debug: log pH pump start/stop
       {
         static bool phPumpWasRunning = false;
         static unsigned long phPumpStartMs = 0;
         bool phPumpRunning = PhPump.IsRunning();
         if (phPumpRunning && !phPumpWasRunning) {
           phPumpStartMs = millis();
-          unsigned long cumul_before = PhPump.GetUpTime();
-          Debug.print(DBG_INFO, "[LOGIC] pH Pump START -- total before: %lum %02lus", cumul_before / 60, cumul_before % 60);
-          printUptime(millis(), "[PhPump START]");
+          Debug.print(DBG_INFO, "[LOGIC] pH Pump START");
         } else if (!phPumpRunning && phPumpWasRunning) {
           unsigned long per_run_ms = millis() - phPumpStartMs;
-          unsigned long cumul_sec = PhPump.GetUpTime();
-          Debug.print(DBG_INFO, "[LOGIC] pH Pump STOP -- ran for %lum %02lus (total today: %lum %02lus)",
-              per_run_ms / 60000, (per_run_ms / 1000) % 60,
-              cumul_sec / 60, cumul_sec % 60);
-          printUptime(millis(), "[PhPump STOP]");
-          // ResetUpTime() NOT called here — cumulative daily runtime is reset
-          // at midnight by PoolDeviceManager.ResetUptimes().
-          // MaxUpTime (default 30 min) provides safety via Pump::loop().
+          Debug.print(DBG_INFO, "[LOGIC] pH Pump STOP -- ran for %lum %02lus",
+              per_run_ms / 60000, (per_run_ms / 1000) % 60);
         }
         phPumpWasRunning = phPumpRunning;
       }
@@ -393,25 +369,18 @@ void OrpRegulation(void *pvParameters)
         PMData.OrpPIDOutput = 0.0;
         ChlPump.Stop();
       } 
-      // Debug: log Chlor pump start/stop with daily cumulative runtime
+      // Debug: log Chlor pump start/stop
       {
         static bool chlPumpWasRunning = false;
         static unsigned long chlPumpStartMs = 0;
         bool chlPumpRunning = ChlPump.IsRunning();
         if (chlPumpRunning && !chlPumpWasRunning) {
           chlPumpStartMs = millis();
-          unsigned long cumul_before = ChlPump.GetUpTime();
-          Debug.print(DBG_INFO, "[LOGIC] Chlor Pump START -- total before: %lum %02lus", cumul_before / 60, cumul_before % 60);
-          printUptime(millis(), "[ChlPump START]");
+          Debug.print(DBG_INFO, "[LOGIC] Chlor Pump START");
         } else if (!chlPumpRunning && chlPumpWasRunning) {
           unsigned long per_run_ms = millis() - chlPumpStartMs;
-          unsigned long cumul_sec = ChlPump.GetUpTime();
-          Debug.print(DBG_INFO, "[LOGIC] Chlor Pump STOP -- ran for %lum %02lus (total today: %lum %02lus)",
-              per_run_ms / 60000, (per_run_ms / 1000) % 60,
-              cumul_sec / 60, cumul_sec % 60);
-          printUptime(millis(), "[ChlPump STOP]");
-          // ResetUpTime() NOT called here — cumulative daily runtime is reset
-          // at midnight by PoolDeviceManager.ResetUptimes().
+          Debug.print(DBG_INFO, "[LOGIC] Chlor Pump STOP -- ran for %lum %02lus",
+              per_run_ms / 60000, (per_run_ms / 1000) % 60);
         }
         chlPumpWasRunning = chlPumpRunning;
       }

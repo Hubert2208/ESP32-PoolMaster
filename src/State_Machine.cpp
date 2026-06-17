@@ -1,14 +1,5 @@
 // File to store all states
 #include "State_Machine.h"
-
-// Helper to format uptime in human-readable format
-static void printUptime(unsigned long ms, const char* prefix) {
-  unsigned long sec = ms / 1000;
-  unsigned long min = sec / 60;
-  unsigned long hrs = min / 60;
-  sec %= 60;
-  min %= 60;
-  Debug.print(DBG_INFO, "[LOGIC] %s Board uptime: %luh %02lum %02lus", prefix, hrs, min, sec);
 }
 
 bool FillingPump_StartCondition()
@@ -138,54 +129,37 @@ bool SWGPump_StopCondition() {
   return false; // SWG Pump should not start if Electrolyse mode is OFF
 }
 
-// What to do when the pump starts or stops
-// Debug logging with daily cumulative runtime.
-//
-// UpTime accumulates in Pump::loop() while running and Pump::Stop() adds the
-// final increment. GetUpTime() returns the total runtime since midnight
-// (reset by PoolDeviceManager.ResetUptimes()).
-//
-// MaxUpTime (set per pump) provides the safety limit: Pump::loop()
-// automatically stops the pump when UpTime exceeds CurrMaxUpTime and sets
-// UpTimeError.
+// Pump start/stop actions with debug logging
 void FiltrationPump_StartAction(void) {
-  Debug.print(DBG_INFO, "[LOGIC] Start %s -- ran for 0m 00s", FiltrationPump.GetName());
-  printUptime(millis(), "[FiltrationPump START]");
+  Debug.print(DBG_INFO, "[LOGIC] Start %s", FiltrationPump.GetName());
 }
 void FiltrationPump_StopAction(void) {
-  unsigned long cumul_sec = FiltrationPump.GetUpTime();
-  Debug.print(DBG_INFO, "[LOGIC] Stop %s -- total today: %lum %02lus", FiltrationPump.GetName(), cumul_sec / 60, cumul_sec % 60);
-  printUptime(millis(), "[FiltrationPump STOP]");
+  unsigned long sec = FiltrationPump.GetUpTime();
+  Debug.print(DBG_INFO, "[LOGIC] Stop %s -- ran for %lum %02lus", FiltrationPump.GetName(), sec / 60, sec % 60);
 }
 
 void RobotPump_StartAction(void) {
-  Debug.print(DBG_INFO, "[LOGIC] Start %s -- ran for 0m 00s", RobotPump.GetName());
-  printUptime(millis(), "[RobotPump START]");
+  Debug.print(DBG_INFO, "[LOGIC] Start %s", RobotPump.GetName());
 }
 void RobotPump_StopAction(void) {
-  unsigned long cumul_sec = RobotPump.GetUpTime();
-  Debug.print(DBG_INFO, "[LOGIC] Stop %s -- total today: %lum %02lus", RobotPump.GetName(), cumul_sec / 60, cumul_sec % 60);
-  printUptime(millis(), "[RobotPump STOP]");
+  unsigned long sec = RobotPump.GetUpTime();
+  Debug.print(DBG_INFO, "[LOGIC] Stop %s -- ran for %lum %02lus", RobotPump.GetName(), sec / 60, sec % 60);
   RobotPump.ResetUpTime();
   cleaning_done = true;
 }
 
 void SWGPump_StartAction(void) {
-  Debug.print(DBG_INFO, "[LOGIC] Start %s -- ran for 0m 00s", SWGPump.GetName());
-  printUptime(millis(), "[SWGPump START]");
+  Debug.print(DBG_INFO, "[LOGIC] Start %s", SWGPump.GetName());
 }
 void SWGPump_StopAction(void) {
-  unsigned long cumul_sec = SWGPump.GetUpTime();
-  Debug.print(DBG_INFO, "[LOGIC] Stop %s -- total today: %lum %02lus", SWGPump.GetName(), cumul_sec / 60, cumul_sec % 60);
-  printUptime(millis(), "[SWGPump STOP]");
+  unsigned long sec = SWGPump.GetUpTime();
+  Debug.print(DBG_INFO, "[LOGIC] Stop %s -- ran for %lum %02lus", SWGPump.GetName(), sec / 60, sec % 60);
 }
 
 void FillingPump_StartAction(void) {
-  Debug.print(DBG_INFO, "[LOGIC] Start %s -- ran for 0m 00s", FillingPump.GetName());
-  printUptime(millis(), "[FillingPump START]");
+  Debug.print(DBG_INFO, "[LOGIC] Start %s", FillingPump.GetName());
 }
 void FillingPump_StopAction(void) {
-  unsigned long cumul_sec = FillingPump.GetUpTime();
-  Debug.print(DBG_INFO, "[LOGIC] Stop %s -- total today: %lum %02lus", FillingPump.GetName(), cumul_sec / 60, cumul_sec % 60);
-  printUptime(millis(), "[FillingPump STOP]");
+  unsigned long sec = FillingPump.GetUpTime();
+  Debug.print(DBG_INFO, "[LOGIC] Stop %s -- ran for %lum %02lus", FillingPump.GetName(), sec / 60, sec % 60);
 }
