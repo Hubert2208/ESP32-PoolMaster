@@ -35,6 +35,16 @@ void Pump::loop()
     UpTime += millis() - LastLoopMillis;
     LastLoopMillis = millis();
 
+    // Debug: log IsRunning state every ~5s to detect phantom running
+    {
+        static unsigned long lastRunLog = 0;
+        if (pin_number != 0 && millis() - lastRunLog >= 5000) {
+            lastRunLog = millis();
+            Serial.printf("[Pump::loop] pin=%d IsRunning=true activeLvl=%d digRead=%d UpTime=%lu\r\n",
+                pin_number, active_level, digitalRead(pin_number), UpTime);
+        }
+    }
+
     if((CurrMaxUpTime > 0) && (UpTime >= CurrMaxUpTime))
     {
         Stop();
