@@ -315,15 +315,17 @@ void pHRegulation(void *pvParameters)
         PhPump.Stop();
       } 
       // Debug: log pH pump start/stop with runtime and board uptime
+      // Note: at START we log 0m 00s (pump just began), at STOP we use
+      // millis() - StartTime for the actual runtime since last start.
       {
         static bool phPumpWasRunning = false;
         bool phPumpRunning = PhPump.IsRunning();
         if (phPumpRunning && !phPumpWasRunning) {
-          unsigned long runtime_sec = PhPump.GetUpTime();
-          Debug.print(DBG_INFO, "[LOGIC] pH Pump START -- ran for %lum %02lus", runtime_sec / 60, runtime_sec % 60);
+          Debug.print(DBG_INFO, "[LOGIC] pH Pump START -- ran for 0m 00s");
           printUptime(millis(), "[PhPump START]");
         } else if (!phPumpRunning && phPumpWasRunning) {
-          unsigned long runtime_sec = PhPump.GetUpTime();
+          unsigned long runtime_ms = millis() - PhPump.StartTime;
+          unsigned long runtime_sec = runtime_ms / 1000;
           Debug.print(DBG_INFO, "[LOGIC] pH Pump STOP -- ran for %lum %02lus", runtime_sec / 60, runtime_sec % 60);
           printUptime(millis(), "[PhPump STOP]");
           PhPump.ResetUpTime();
@@ -381,15 +383,17 @@ void OrpRegulation(void *pvParameters)
         ChlPump.Stop();
       } 
       // Debug: log Chlor pump start/stop with runtime and board uptime
+      // Note: at START we log 0m 00s (pump just began), at STOP we use
+      // millis() - StartTime for the actual runtime since last start.
       {
         static bool chlPumpWasRunning = false;
         bool chlPumpRunning = ChlPump.IsRunning();
         if (chlPumpRunning && !chlPumpWasRunning) {
-          unsigned long runtime_sec = ChlPump.GetUpTime();
-          Debug.print(DBG_INFO, "[LOGIC] Chlor Pump START -- ran for %lum %02lus", runtime_sec / 60, runtime_sec % 60);
+          Debug.print(DBG_INFO, "[LOGIC] Chlor Pump START -- ran for 0m 00s");
           printUptime(millis(), "[ChlPump START]");
         } else if (!chlPumpRunning && chlPumpWasRunning) {
-          unsigned long runtime_sec = ChlPump.GetUpTime();
+          unsigned long runtime_ms = millis() - ChlPump.StartTime;
+          unsigned long runtime_sec = runtime_ms / 1000;
           Debug.print(DBG_INFO, "[LOGIC] Chlor Pump STOP -- ran for %lum %02lus", runtime_sec / 60, runtime_sec % 60);
           printUptime(millis(), "[ChlPump STOP]");
           ChlPump.ResetUpTime();
