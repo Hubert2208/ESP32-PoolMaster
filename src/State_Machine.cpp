@@ -41,7 +41,7 @@ bool FiltrationPump_StartCondition() {
 
 
 void FiltrationPump_LoopActions() {
-  // Check over and under pressure alarms
+  // Check under and over pressure alarms
   if ((((millis() - FiltrationPump.StartTime) > 180000) && (PMData.PSIValue < PMConfig.get<double>(PSI_MEDTHRESHOLD))) ||
       (PMData.PSIValue > PMConfig.get<double>(PSI_HIGHTHRESHOLD)))
   {
@@ -140,9 +140,10 @@ bool SWGPump_StopCondition() {
 
 // What to do when the pump starts or stops
 // Debug logging: pump runtime + board uptime
+// Note: at START we always log 0m 00s (pump just began).
+// At STOP we use millis() - StartTime for the actual runtime since last start.
 void FiltrationPump_StartAction(void) {
-  unsigned long runtime_sec = (millis() - FiltrationPump.StartTime) / 1000;
-  Debug.print(DBG_INFO, "[LOGIC] Start %s -- ran for %lum %02lus", FiltrationPump.GetName(), runtime_sec / 60, runtime_sec % 60);
+  Debug.print(DBG_INFO, "[LOGIC] Start %s -- ran for 0m 00s", FiltrationPump.GetName());
   printUptime(millis(), "[FiltrationPump START]");
 }
 void FiltrationPump_StopAction(void) {
@@ -153,8 +154,7 @@ void FiltrationPump_StopAction(void) {
 }
 
 void RobotPump_StartAction(void) {
-  unsigned long runtime_sec = RobotPump.GetUpTime();
-  Debug.print(DBG_INFO, "[LOGIC] Start %s -- ran for %lum %02lus", RobotPump.GetName(), runtime_sec / 60, runtime_sec % 60);
+  Debug.print(DBG_INFO, "[LOGIC] Start %s -- ran for 0m 00s", RobotPump.GetName());
   printUptime(millis(), "[RobotPump START]");
 }
 void RobotPump_StopAction(void) {
@@ -166,23 +166,23 @@ void RobotPump_StopAction(void) {
 }
 
 void SWGPump_StartAction(void) {
-  unsigned long runtime_sec = SWGPump.GetUpTime();
-  Debug.print(DBG_INFO, "[LOGIC] Start %s -- ran for %lum %02lus", SWGPump.GetName(), runtime_sec / 60, runtime_sec % 60);
+  Debug.print(DBG_INFO, "[LOGIC] Start %s -- ran for 0m 00s", SWGPump.GetName());
   printUptime(millis(), "[SWGPump START]");
 }
 void SWGPump_StopAction(void) {
-  unsigned long runtime_sec = SWGPump.GetUpTime(); // already in seconds
+  unsigned long runtime_ms = millis() - SWGPump.StartTime;
+  unsigned long runtime_sec = runtime_ms / 1000;
   Debug.print(DBG_INFO, "[LOGIC] Stop %s -- ran for %lum %02lus", SWGPump.GetName(), runtime_sec / 60, runtime_sec % 60);
   printUptime(millis(), "[SWGPump STOP]");
 }
 
 void FillingPump_StartAction(void) {
-  unsigned long runtime_sec = FillingPump.GetUpTime();
-  Debug.print(DBG_INFO, "[LOGIC] Start %s -- ran for %lum %02lus", FillingPump.GetName(), runtime_sec / 60, runtime_sec % 60);
+  Debug.print(DBG_INFO, "[LOGIC] Start %s -- ran for 0m 00s", FillingPump.GetName());
   printUptime(millis(), "[FillingPump START]");
 }
 void FillingPump_StopAction(void) {
-  unsigned long runtime_sec = FillingPump.GetUpTime(); // already in seconds
+  unsigned long runtime_ms = millis() - FillingPump.StartTime;
+  unsigned long runtime_sec = runtime_ms / 1000;
   Debug.print(DBG_INFO, "[LOGIC] Stop %s -- ran for %lum %02lus", FillingPump.GetName(), runtime_sec / 60, runtime_sec % 60);
   printUptime(millis(), "[FillingPump STOP]");
 }
