@@ -48,20 +48,6 @@ void Pump::loop()
     UpTime += millis() - LastLoopMillis;
     LastLoopMillis = millis();
 
-    // Debug: log IsRunning state every ~5s per pump instance
-    {
-        static unsigned long lastLogByPin[32] = {0};
-        uint8_t pn = GetPinNumber();
-        unsigned long now = millis();
-        // Use pin number as index into a fixed array (safe: pin 100-131)
-        uint8_t idx = pn - 100;
-        if (pn >= 100 && pn <= 131 && (lastLogByPin[idx] == 0 || now - lastLogByPin[idx] >= 5000)) {
-            lastLogByPin[idx] = now;
-            Serial.printf("[Pump::loop] pin=%d IsRunning=true activeLvl=%d digRead=%d UpTime=%lu\r\n",
-                pn, GetActiveLevel(), digitalRead(pn), UpTime);
-        }
-    }
-
     if((CurrMaxUpTime > 0) && (UpTime >= CurrMaxUpTime))
     {
         Stop();
