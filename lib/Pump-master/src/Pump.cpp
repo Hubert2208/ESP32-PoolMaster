@@ -228,6 +228,7 @@ void Pump::ResetUpTime()
   UpTime = 0;
   CurrMaxUpTime = MaxUpTime;
   LastLoopMillis = millis();  // FIX: preserve millis() reference to avoid jump in UpTime calculation
+  UpTimeError = false;  // FIX: clear error so pump can start again after midnight reset
 }
 
 //Clear "UpTimeError" error flag and allow the pump to run for an extra MaxUpTime
