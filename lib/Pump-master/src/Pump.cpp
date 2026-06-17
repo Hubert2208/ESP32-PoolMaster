@@ -38,10 +38,11 @@ void Pump::loop()
     // Debug: log IsRunning state every ~5s to detect phantom running
     {
         static unsigned long lastRunLog = 0;
-        if (pin_number != 0 && millis() - lastRunLog >= 5000) {
+        uint8_t pn = GetPinNumber();
+        if (pn != 0 && millis() - lastRunLog >= 5000) {
             lastRunLog = millis();
             Serial.printf("[Pump::loop] pin=%d IsRunning=true activeLvl=%d digRead=%d UpTime=%lu\r\n",
-                pin_number, active_level, digitalRead(pin_number), UpTime);
+                pn, GetActiveLevel(), digitalRead(pn), UpTime);
         }
     }
 
