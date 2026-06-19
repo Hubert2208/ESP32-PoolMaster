@@ -60,7 +60,7 @@ void Pump::loop()
     if(!TankLevel())
     {
       Stop();
-    } 
+    }
 
     // If there is an interlock pump and it stopped. Stop this pump as well
     if ((interlock_pump_!=nullptr) && (interlock_pump_->IsEnabled() == false))
@@ -91,6 +91,11 @@ u_int8_t Pump::Start(bool _resetUpTime)
 
   if((!IsRunning()) && !UpTimeError && TankLevel() && CheckInterlock())
   {
+    // CRITICAL: Set LastLoopMillis BEFORE Enable() to prevent race condition.
+    // On dual-core ESP32, Pump::loop() on the other core can read stale
+    // LastLoopMillis=0 during the I2C Enable() call, causing UpTime to
+    // jump by the entire board uptime in a single iteration.
+    LastLoopMillis = millis();
     if (!this->Relay::Enable()) {
       bitMaskErrors |= (1 << 3); // Bit 3: Relay error
 #ifdef KC868_A8
@@ -99,7 +104,7 @@ u_int8_t Pump::Start(bool _resetUpTime)
 #endif
       return bitMaskErrors;
     } else {
-      LastLoopMillis = StartTime = millis();
+      StartTime = millis();
 #ifdef KC868_A8
       Serial.printf("[Pump::Start] pin=%d -> OK: UpTime=%lums millis=%lu\r\n",
         GetPinNumber(), UpTime, millis());
@@ -164,7 +169,7 @@ bool Pump::TankLevel()
   }
   else if (tank_level_pin == NO_LEVEL)
   {
-    return (GetTankFill() > 5.); //alert below 5% 
+    return (GetTankFill() > 5.); //alert below 5%
   }
   else
   {
@@ -178,7 +183,7 @@ bool Pump::TankLevel()
     }
 #endif
     return (digitalRead(tank_level_pin) == TANK_FULL);
-  } 
+  }
 }
 
 //Set tank fill (percentage of tank volume)
@@ -201,7 +206,7 @@ void Pump::SetTankVolume(double _tankvolume)
 }
 
 //Return the percentage used since last reset of UpTime
-double Pump::GetTankUsage() 
+double Pump::GetTankUsage()
 {
   float PercentageUsed = -1.0;
   if((tankvolume != 0.0) && (flowrate !=0.0))
@@ -210,7 +215,7 @@ double Pump::GetTankUsage()
     double Consumption = flowrate/60.0*MinutesOfUpTime;
     PercentageUsed = Consumption/tankvolume*100.0;
   }
-  return (PercentageUsed); 
+  return (PercentageUsed);
 }
 
 //Set flow rate of the pump in Liters/hour
@@ -228,7 +233,7 @@ void Pump::SetMaxUpTime(unsigned long _maxuptime)
   CurrMaxUpTime = _maxuptime;
 }
 
-//Set a minimum running time (in millisecs) 
+//Set a minimum running time (in millisecs)
 //Pump can't stop before this time is reached
 //Set "Min" to 0 to disable limit
 void Pump::SetMinUpTime(unsigned long _minuptime)
@@ -274,7 +279,7 @@ void Pump::SetInterlock(uint8_t _interlock_pin_id)
   interlock_pin_id = _interlock_pin_id;
 }
 
-uint8_t Pump::GetInterlockId(void) 
+uint8_t Pump::GetInterlockId(void)
 {
 /*  if(interlock_pump_ != nullptr)
   {
@@ -308,22 +313,22 @@ void Pump::SavePreferences(Preferences& prefs, uint8_t pin_id)  {
 
     snprintf(key, sizeof(key), "d%d_fr", pin_id);  // "device_X_flowrate"
     prefs.putDouble(key, flowrate);
-  
+
     snprintf(key, sizeof(key), "d%d_tv", pin_id);  // "device_X_tankvolume"
     prefs.putDouble(key, tankvolume);
-  
+
     snprintf(key, sizeof(key), "d%d_tf", pin_id);  // "device_X_tankfill"
     prefs.putDouble(key, tankfill);
-  
+
     snprintf(key, sizeof(key), "d%d_tl", pin_id);  // "device_X_tanklevelpin"
     prefs.putUChar(key, tank_level_pin);
-  
+
     snprintf(key, sizeof(key), "d%d_il", pin_id);  // "device_X_interlockid"
     prefs.putUChar(key, interlock_pin_id);
-  
+
     snprintf(key, sizeof(key), "d%d_mu", pin_id);  // "device_X_maxutime"
     prefs.putULong(key, MaxUpTime);
-  
+
     snprintf(key, sizeof(key), "d%d_mi", pin_id);  // "device_X_minutime"
     prefs.putULong(key, MinUpTime);
   }
