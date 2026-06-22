@@ -84,11 +84,6 @@ u_int8_t Pump::Start(bool _resetUpTime)
   bitMaskErrors |= (!TankLevel() & 1) << 1; // Bit 1: Tank level error
   bitMaskErrors |= (!CheckInterlock() & 1) << 2; // Bit 2: Interlock error
 
-#ifdef KC868_A8
-  Serial.printf("[Pump::Start] pin=%d ENTERED: IsRunning=%d UpTime=%lums (%lus) millis=%lu bits=0x%02X\r\n",
-    GetPinNumber(), (int)IsRunning(), UpTime, UpTime / 1000, millis(), bitMaskErrors);
-#endif
-
   // [FIX-A] Always update LastLoopMillis BEFORE checking relay state.
   // Previously, this was inside the if(!IsRunning()) block, which meant
   // LastLoopMillis stayed at 0 (from constructor or ResetUpTime) when:
@@ -117,9 +112,10 @@ u_int8_t Pump::Start(bool _resetUpTime)
     }
   }
 #ifdef KC868_A8
-  else {
-    Serial.printf("[Pump::Start] pin=%d -> SKIPPED: IsRunning=%d UpTimeErr=%d Tank=%d Interlock=%d\r\n",
-      GetPinNumber(), (int)IsRunning(), (int)UpTimeError, (int)TankLevel(), (int)CheckInterlock());
+  else if (bitMaskErrors != 0) {
+    // Only log if there are actual error conditions (not just "already running")
+    Serial.printf("[Pump::Start] pin=%d -> BLOCKED: UpTimeErr=%d Tank=%d Interlock=%d\r\n",
+      GetPinNumber(), (int)UpTimeError, (int)TankLevel(), (int)CheckInterlock());
   }
 #endif
   return bitMaskErrors;
@@ -128,10 +124,6 @@ u_int8_t Pump::Start(bool _resetUpTime)
 //Switch pump OFF
 bool Pump::Stop()
 {
-#ifdef KC868_A8
-  Serial.printf("[Pump::Stop]  pin=%d ENTERED: IsRunning=%d UpTime=%lums (%lus) millis=%lu\r\n",
-    GetPinNumber(), (int)IsRunning(), UpTime, UpTime / 1000, millis());
-#endif
   if(IsRunning())
   {
     if (!this->Relay::Disable())
@@ -151,11 +143,6 @@ bool Pump::Stop()
 #endif
     return true;
   }
-#ifdef KC868_A8
-  else {
-    Serial.printf("[Pump::Stop]  pin=%d -> SKIPPED (not running)\r\n", GetPinNumber());
-  }
-#endif
   return false;
 }
 
