@@ -89,13 +89,18 @@ u_int8_t Pump::Start(bool _resetUpTime)
     GetPinNumber(), (int)IsRunning(), UpTime, UpTime / 1000, millis(), bitMaskErrors);
 #endif
 
+  // [FIX-A] Always update LastLoopMillis BEFORE checking relay state.
+  // Previously, this was inside the if(!IsRunning()) block, which meant
+  // LastLoopMillis stayed at 0 (from constructor or ResetUpTime) when:
+  //   1) First-ever Start() after boot with relay already ON (from Preferences)
+  //   2) Redundant Start() command while pump is already running
+  //   3) After midnight ResetUpTime() while pump is running
+  // In all these cases, loop() would calculate UpTime += millis() - 0,
+  // adding the entire board uptime in a single iteration.
+  LastLoopMillis = millis();
+
   if((!IsRunning()) && !UpTimeError && TankLevel() && CheckInterlock())
   {
-    // CRITICAL: Set LastLoopMillis BEFORE Enable() to prevent race condition.
-    // On dual-core ESP32, Pump::loop() on the other core can read stale
-    // LastLoopMillis=0 during the I2C Enable() call, causing UpTime to
-    // jump by the entire board uptime in a single iteration.
-    LastLoopMillis = millis();
     if (!this->Relay::Enable()) {
       bitMaskErrors |= (1 << 3); // Bit 3: Relay error
 #ifdef KC868_A8
@@ -246,10 +251,21 @@ void Pump::SetMinUpTime(unsigned long _minuptime)
 //This is typically called every day at midnight
 void Pump::ResetUpTime()
 {
-  StartTime = LastLoopMillis = 0;
+  StartTime = 0;
   StopTime = 0;
   UpTime = 0;
   CurrMaxUpTime = MaxUpTime;
+
+  // [FIX-B] Only reset LastLoopMillis to 0 if pump is NOT running.
+  // Previously, this unconditionally set LastLoopMillis = 0.
+  // When called at midnight (PoolMaster daily reset) while pump is running,
+  // the next loop() would calculate UpTime += millis() - 0,
+  // adding the entire board uptime in one iteration.
+  if (!IsRunning()) {
+    LastLoopMillis = 0;
+  } else {
+    LastLoopMillis = millis();
+  }
 }
 
 //Clear "UpTimeError" error flag and allow the pump to run for an extra MaxUpTime
