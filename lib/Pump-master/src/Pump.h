@@ -99,6 +99,7 @@ class Pump : public Relay {
     PIN*  interlock_pump_     = nullptr; // Interlock can be passed 
     uint8_t interlock_pin_id  = NO_INTERLOCK; // Used temporarily to store the interlock pin id but converted in pointer by InitInterlock function
     unsigned long LastLoopMillis     = 0;
+    uint8_t lastBitMaskErrors        = 0; // Track previous Start() error state for change-only logging
     uint8_t tank_level_pin;
     double flowrate, tankvolume, tankfill; // Flowrate in L/h, tank volume in Liters, tank fill in %
 };

@@ -97,11 +97,11 @@ u_int8_t Pump::Start(bool _resetUpTime)
     }
   }
 #ifdef KC868_A8
-  else if (bitMaskErrors != 0) {
-    // Only log if there are actual error conditions (not just "already running")
+  else if (bitMaskErrors != 0 && bitMaskErrors != lastBitMaskErrors) {
     Serial.printf("[Pump::Start] pin=%d -> BLOCKED: UpTimeErr=%d Tank=%d Interlock=%d\r\n",
       GetPinNumber(), (int)UpTimeError, (int)TankLevel(), (int)CheckInterlock());
   }
+  lastBitMaskErrors = bitMaskErrors;
 #endif
   return bitMaskErrors;
 }
