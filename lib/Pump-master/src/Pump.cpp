@@ -10,21 +10,6 @@ void Pump::loop()
 {
   u_int8_t bitMaskErrors = 0;
 
-#ifdef KC868_A8
-  // Periodic debug output (every 5s) to track UpTime accumulation
-  static unsigned long lastDbgLoop = 0;
-  if (millis() - lastDbgLoop > 5000) {
-    if (IsRunning()) {
-      Serial.printf("[Pump::loop] pin=%d RUNNING: UpTime=%lums (%lus) millis=%lu delta=%lu\r\n",
-        GetPinNumber(), UpTime, UpTime / 1000, millis(), millis() - LastLoopMillis);
-    } else if (UpTime > 0) {
-      Serial.printf("[Pump::loop] pin=%d STOPPED: UpTime=%lums (%lus) millis=%lu\r\n",
-        GetPinNumber(), UpTime, UpTime / 1000, millis());
-    }
-    lastDbgLoop = millis();
-  }
-#endif
-
   // Call the loop handler if it exists, if the pump is not running
   // and only if the interlock pump is running (if it exists)
   if (interlock_pump_ == nullptr || (interlock_pump_ != nullptr && interlock_pump_->IsEnabled())) {
