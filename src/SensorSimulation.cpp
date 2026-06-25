@@ -91,21 +91,12 @@ void SensorSimulation::updateAnalogSimulation() {
     bool phPumpOn = PhPump.IsRunning();
     bool chlPumpOn = ChlPump.IsRunning();
 
-    Debug.print(DBG_INFO, "[AnalogSim] PhPump: %s | ChlPump: %s",
-        phPumpOn ? "ON" : "OFF",
-        chlPumpOn ? "ON" : "OFF");
-
     // --- pH Simulation ---
     if (simulating_ph) {
-        double oldPH = sim_ph_value;
         if (phPumpOn) {
             sim_ph_value -= SIM_PH_ACTIVE_RATE;
-            Debug.print(DBG_INFO, "[Sim] pH: %.3f -> %.3f (pump ON, -%.3f)",
-                oldPH, sim_ph_value, SIM_PH_ACTIVE_RATE);
         } else {
             sim_ph_value += SIM_PH_DRIFT_RATE;
-            Debug.print(DBG_INFO, "[Sim] pH: %.3f -> %.3f (pump OFF, +%.3f)",
-                oldPH, sim_ph_value, SIM_PH_DRIFT_RATE);
         }
         if (sim_ph_value < SIM_PH_MIN) sim_ph_value = SIM_PH_MIN;
         if (sim_ph_value > SIM_PH_MAX) sim_ph_value = SIM_PH_MAX;
@@ -113,15 +104,10 @@ void SensorSimulation::updateAnalogSimulation() {
 
     // --- ORP Simulation ---
     if (simulating_orp) {
-        double oldORP = sim_orp_value;
         if (chlPumpOn) {
             sim_orp_value += SIM_ORP_ACTIVE_RATE;
-            Debug.print(DBG_INFO, "[Sim] ORP: %.1f -> %.1f (pump ON, +%.1f)",
-                oldORP, sim_orp_value, SIM_ORP_ACTIVE_RATE);
         } else {
             sim_orp_value -= SIM_ORP_DRIFT_RATE;
-            Debug.print(DBG_INFO, "[Sim] ORP: %.1f -> %.1f (pump OFF, -%.1f)",
-                oldORP, sim_orp_value, SIM_ORP_DRIFT_RATE);
         }
         if (sim_orp_value < SIM_ORP_MIN) sim_orp_value = SIM_ORP_MIN;
         if (sim_orp_value > SIM_ORP_MAX) sim_orp_value = SIM_ORP_MAX;
