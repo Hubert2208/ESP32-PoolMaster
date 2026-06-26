@@ -330,6 +330,16 @@ void pHRegulation(void *pvParameters)
     td = millis();
     #endif 
 
+    // [DEBUG-TMP] Heartbeat to verify pH task runs
+    static unsigned long phLastDbg = 0;
+    if (millis() - phLastDbg > 30000) {
+      phLastDbg = millis();
+      Debug.print(DBG_INFO,
+        "[pH-Task] alive mode=%d filtRun=%d Output=%.0f wStart=%lu",
+        (int)PhPID.GetMode(), (int)FiltrationPump.IsRunning(),
+        PMData.PhPIDOutput, (unsigned long)PMData.PhPIDwStart);
+    }
+
     //do not compute PID if filtration pump is not running
     // Set also a lower limit at 30s (a lower pump duration doesn't mean anything)
     if (PhPID.GetMode() == AUTOMATIC)
