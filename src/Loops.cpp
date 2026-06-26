@@ -359,7 +359,7 @@ void pHRegulation(void *pvParameters)
 
           bool shouldRun = ((unsigned long)PMData.PhPIDOutput > elapsed);
 
-          // Debug: log only when PID wants to start the pump
+          // Debug: log only on transition to "PID wants to start"
           static bool phLastShouldRun = false;
           if (shouldRun && !phLastShouldRun)
           {
@@ -373,6 +373,14 @@ void pHRegulation(void *pvParameters)
               PhPump.UpTime, PhPump.CurrMaxUpTime);
           }
           phLastShouldRun = shouldRun;
+
+          if (windowShifted)
+          {
+            // New window: reset pump uptime safety limit so the pump
+            // can run again within this window.
+            PhPump.ResetUpTime();
+            PhPump.ClearErrors();
+          }
 
           if (!shouldRun)
             PhPump.Stop();
@@ -455,7 +463,7 @@ void OrpRegulation(void *pvParameters)
 
         bool shouldRun = ((unsigned long)PMData.OrpPIDOutput > elapsed);
 
-        // Debug: log only when PID wants to start the pump
+        // Debug: log only on transition to "PID wants to start"
         static bool orpLastShouldRun = false;
         if (shouldRun && !orpLastShouldRun)
         {
@@ -469,6 +477,12 @@ void OrpRegulation(void *pvParameters)
             ChlPump.UpTime, ChlPump.CurrMaxUpTime);
         }
         orpLastShouldRun = shouldRun;
+
+        if (windowShifted)
+        {
+          ChlPump.ResetUpTime();
+          ChlPump.ClearErrors();
+        }
 
         if (!shouldRun)
           ChlPump.Stop();
