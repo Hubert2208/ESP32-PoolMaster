@@ -350,6 +350,21 @@ void pHRegulation(void *pvParameters)
             Debug.print(DBG_INFO,"Ph  regulation: %10.2f, %13.9f, %13.9f, %17.9f",PMData.PhPIDOutput,PMData.PhValue,PMData.Ph_SetPoint,PMConfig.get<double>(PH_KP));
             if(PMData.PhPIDOutput < (double)30000.) PMData.PhPIDOutput = 0.;
             Debug.print(DBG_INFO,"Ph  regulation: %10.2f",PMData.PhPIDOutput);
+
+            // Window state at compute time
+            unsigned long now_dbg = millis();
+            unsigned long win_dbg = PMConfig.get<unsigned long>(PHPIDWINDOWSIZE);
+            unsigned long el_dbg = now_dbg - PMData.PhPIDwStart;
+            bool shifted_dbg = (el_dbg > win_dbg);
+            bool should_dbg = ((unsigned long)PMData.PhPIDOutput > (shifted_dbg ? 0 : el_dbg));
+            Debug.print(DBG_INFO,
+              "[pH-Win] Out=%lu El=%lu Win=%lu Shift=%d ShouldRun=%d "
+              "Run=%d UpErr=%d Tank=%d Ilk=%d Up=%lu Max=%lu",
+              (unsigned long)PMData.PhPIDOutput, el_dbg, win_dbg,
+              (int)shifted_dbg, (int)should_dbg,
+              (int)PhPump.IsRunning(), (int)PhPump.UpTimeError,
+              (int)PhPump.TankLevel(), (int)PhPump.CheckInterlock(),
+              PhPump.UpTime, PhPump.CurrMaxUpTime);
           }    
           /************************************************
            turn the Acid pump on/off based on pid output
@@ -454,6 +469,21 @@ void OrpRegulation(void *pvParameters)
           Debug.print(DBG_INFO,"ORP regulation: %10.2f, %13.9f, %12.9f, %17.9f",PMData.OrpPIDOutput,PMData.OrpValue,PMData.Orp_SetPoint,PMConfig.get<double>(ORP_KP));
           if(PMData.OrpPIDOutput < (double)30000.) PMData.OrpPIDOutput = 0.;    
             Debug.print(DBG_INFO,"Orp regulation: %10.2f",PMData.OrpPIDOutput);
+
+            // Window state at compute time
+            unsigned long now_dbg2 = millis();
+            unsigned long win_dbg2 = PMConfig.get<unsigned long>(ORPPIDWINDOWSIZE);
+            unsigned long el_dbg2 = now_dbg2 - PMData.OrpPIDwStart;
+            bool shifted_dbg2 = (el_dbg2 > win_dbg2);
+            bool should_dbg2 = ((unsigned long)PMData.OrpPIDOutput > (shifted_dbg2 ? 0 : el_dbg2));
+            Debug.print(DBG_INFO,
+              "[ORP-Win] Out=%lu El=%lu Win=%lu Shift=%d ShouldRun=%d "
+              "Run=%d UpErr=%d Tank=%d Ilk=%d Up=%lu Max=%lu",
+              (unsigned long)PMData.OrpPIDOutput, el_dbg2, win_dbg2,
+              (int)shifted_dbg2, (int)should_dbg2,
+              (int)ChlPump.IsRunning(), (int)ChlPump.UpTimeError,
+              (int)ChlPump.TankLevel(), (int)ChlPump.CheckInterlock(),
+              ChlPump.UpTime, ChlPump.CurrMaxUpTime);
           }    
         /************************************************
          turn the Chl pump on/off based on pid output
