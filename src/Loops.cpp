@@ -345,12 +345,31 @@ void pHRegulation(void *pvParameters)
            turn the Acid pump on/off based on pid output
           ************************************************/
           unsigned long now = millis();
-          if (now - PMData.PhPIDwStart > PMConfig.get<unsigned long>(PHPIDWINDOWSIZE))
+          unsigned long windowSize = PMConfig.get<unsigned long>(PHPIDWINDOWSIZE);
+          unsigned long elapsed = now - PMData.PhPIDwStart;
+          bool windowShifted = false;
+
+          if (elapsed > windowSize)
           {
             //time to shift the Relay Window
             PMData.PhPIDwStart += PMConfig.get<double>(PHPIDWINDOWSIZE);
-            }
-          if ((unsigned long)PMData.PhPIDOutput <= now - PMData.PhPIDwStart)
+            elapsed = now - PMData.PhPIDwStart;
+            windowShifted = true;
+          }
+
+          bool shouldRun = ((unsigned long)PMData.PhPIDOutput > elapsed);
+
+          // Debug: log pump state before Start/Stop decision
+          Debug.print(DBG_INFO,
+            "[pH-Window] Out=%6lu Elapsed=%6lu Win=%lu Shift=%d ShouldRun=%d "
+            "Running=%d UpTimeErr=%d Tank=%d Interlock=%d UpTime=%lu MaxUp=%lu",
+            (unsigned long)PMData.PhPIDOutput, elapsed, windowSize,
+            (int)windowShifted, (int)shouldRun,
+            (int)PhPump.IsRunning(), (int)PhPump.UpTimeError,
+            (int)PhPump.TankLevel(), (int)PhPump.CheckInterlock(),
+            PhPump.UpTime, PhPump.CurrMaxUpTime);
+
+          if (!shouldRun)
             PhPump.Stop();
           else
             PhPump.Start();   
@@ -417,12 +436,31 @@ void OrpRegulation(void *pvParameters)
          turn the Chl pump on/off based on pid output
         ************************************************/
         unsigned long now = millis();
-        if (now - PMData.OrpPIDwStart > PMConfig.get<double>(ORPPIDWINDOWSIZE))
+        unsigned long windowSize = PMConfig.get<unsigned long>(ORPPIDWINDOWSIZE);
+        unsigned long elapsed = now - PMData.OrpPIDwStart;
+        bool windowShifted = false;
+
+        if (elapsed > windowSize)
         {
           //time to shift the Relay Window
           PMData.OrpPIDwStart += PMConfig.get<double>(ORPPIDWINDOWSIZE);
+          elapsed = now - PMData.OrpPIDwStart;
+          windowShifted = true;
         }
-        if ((unsigned long)PMData.OrpPIDOutput <= now - PMData.OrpPIDwStart)
+
+        bool shouldRun = ((unsigned long)PMData.OrpPIDOutput > elapsed);
+
+        // Debug: log pump state before Start/Stop decision
+        Debug.print(DBG_INFO,
+          "[ORP-Window] Out=%6lu Elapsed=%6lu Win=%lu Shift=%d ShouldRun=%d "
+          "Running=%d UpTimeErr=%d Tank=%d Interlock=%d UpTime=%lu MaxUp=%lu",
+          (unsigned long)PMData.OrpPIDOutput, elapsed, windowSize,
+          (int)windowShifted, (int)shouldRun,
+          (int)ChlPump.IsRunning(), (int)ChlPump.UpTimeError,
+          (int)ChlPump.TankLevel(), (int)ChlPump.CheckInterlock(),
+          ChlPump.UpTime, ChlPump.CurrMaxUpTime);
+
+        if (!shouldRun)
           ChlPump.Stop();
         else
           ChlPump.Start();
