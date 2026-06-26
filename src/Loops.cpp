@@ -359,15 +359,20 @@ void pHRegulation(void *pvParameters)
 
           bool shouldRun = ((unsigned long)PMData.PhPIDOutput > elapsed);
 
-          // Debug: log pump state before Start/Stop decision
-          Debug.print(DBG_INFO,
-            "[pH-Window] Out=%6lu Elapsed=%6lu Win=%lu Shift=%d ShouldRun=%d "
-            "Running=%d UpTimeErr=%d Tank=%d Interlock=%d UpTime=%lu MaxUp=%lu",
-            (unsigned long)PMData.PhPIDOutput, elapsed, windowSize,
-            (int)windowShifted, (int)shouldRun,
-            (int)PhPump.IsRunning(), (int)PhPump.UpTimeError,
-            (int)PhPump.TankLevel(), (int)PhPump.CheckInterlock(),
-            PhPump.UpTime, PhPump.CurrMaxUpTime);
+          // Debug: log only when PID wants to start the pump
+          static bool phLastShouldRun = false;
+          if (shouldRun && !phLastShouldRun)
+          {
+            Debug.print(DBG_INFO,
+              "[pH-Window] START Out=%6lu Elapsed=%6lu Win=%lu Shift=%d "
+              "Running=%d UpTimeErr=%d Tank=%d Interlock=%d UpTime=%lu MaxUp=%lu",
+              (unsigned long)PMData.PhPIDOutput, elapsed, windowSize,
+              (int)windowShifted,
+              (int)PhPump.IsRunning(), (int)PhPump.UpTimeError,
+              (int)PhPump.TankLevel(), (int)PhPump.CheckInterlock(),
+              PhPump.UpTime, PhPump.CurrMaxUpTime);
+          }
+          phLastShouldRun = shouldRun;
 
           if (!shouldRun)
             PhPump.Stop();
@@ -450,15 +455,20 @@ void OrpRegulation(void *pvParameters)
 
         bool shouldRun = ((unsigned long)PMData.OrpPIDOutput > elapsed);
 
-        // Debug: log pump state before Start/Stop decision
-        Debug.print(DBG_INFO,
-          "[ORP-Window] Out=%6lu Elapsed=%6lu Win=%lu Shift=%d ShouldRun=%d "
-          "Running=%d UpTimeErr=%d Tank=%d Interlock=%d UpTime=%lu MaxUp=%lu",
-          (unsigned long)PMData.OrpPIDOutput, elapsed, windowSize,
-          (int)windowShifted, (int)shouldRun,
-          (int)ChlPump.IsRunning(), (int)ChlPump.UpTimeError,
-          (int)ChlPump.TankLevel(), (int)ChlPump.CheckInterlock(),
-          ChlPump.UpTime, ChlPump.CurrMaxUpTime);
+        // Debug: log only when PID wants to start the pump
+        static bool orpLastShouldRun = false;
+        if (shouldRun && !orpLastShouldRun)
+        {
+          Debug.print(DBG_INFO,
+            "[ORP-Window] START Out=%6lu Elapsed=%6lu Win=%lu Shift=%d "
+            "Running=%d UpTimeErr=%d Tank=%d Interlock=%d UpTime=%lu MaxUp=%lu",
+            (unsigned long)PMData.OrpPIDOutput, elapsed, windowSize,
+            (int)windowShifted,
+            (int)ChlPump.IsRunning(), (int)ChlPump.UpTimeError,
+            (int)ChlPump.TankLevel(), (int)ChlPump.CheckInterlock(),
+            ChlPump.UpTime, ChlPump.CurrMaxUpTime);
+        }
+        orpLastShouldRun = shouldRun;
 
         if (!shouldRun)
           ChlPump.Stop();
