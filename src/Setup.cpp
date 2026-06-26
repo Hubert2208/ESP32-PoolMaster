@@ -181,7 +181,7 @@ void setup()
 
   //get board info
   info();
-  Debug.print(DBG_INFO,"Booting PoolMaster Version: %s",FIRMW);
+  Debug.print(DBG_INFO,"Booting PoolMaster Version: %s [%s]",FIRMW,GIT_COMMIT_HASH);
   // Initialize Nextion TFT
   #ifdef TFT_CONNECTED
   ResetTFT();

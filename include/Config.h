@@ -18,6 +18,9 @@
 
 // Firmware revisions
 #define FIRMW "ESP-4.62"
+#ifndef GIT_COMMIT_HASH
+#define GIT_COMMIT_HASH "unknown"
+#endif
 #define TFT_FIRMW "TFT-4.0" // For compatibility
 
 // Choose Nextion version to Compile (only one choice possible)
