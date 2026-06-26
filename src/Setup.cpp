@@ -393,12 +393,12 @@ void setup()
   // Limit the PIDs output range in order to limit max. pumps runtime (safety first...)
   PhPID.SetTunings(PMConfig.get<double>(PH_KP), PMConfig.get<double>(PH_KI), PMConfig.get<double>(PH_KD));
   PhPID.SetControllerDirection(PhPID_DIRECTION);
-  PhPID.SetSampleTime((int)PMConfig.get<unsigned long>(PHPIDWINDOWSIZE));
+  PhPID.SetSampleTime(30000);   // Recompute every 30s (independent of window size)
   PhPID.SetOutputLimits(0, PMConfig.get<unsigned long>(PHPIDWINDOWSIZE));    //Whatever happens, don't allow continuous injection of Acid for more than a PID Window
 
   OrpPID.SetTunings(PMConfig.get<double>(ORP_KP), PMConfig.get<double>(ORP_KI), PMConfig.get<double>(ORP_KD));
   OrpPID.SetControllerDirection(OrpPID_DIRECTION);
-  OrpPID.SetSampleTime((int)PMConfig.get<unsigned long>(ORPPIDWINDOWSIZE));
+  OrpPID.SetSampleTime(30000);  // Recompute every 30s (independent of window size)
   OrpPID.SetOutputLimits(0, PMConfig.get<unsigned long>(ORPPIDWINDOWSIZE));  //Whatever happens, don't allow continuous injection of Chl for more than a PID Window
 
   // PIDs off at start

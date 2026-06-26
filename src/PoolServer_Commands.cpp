@@ -348,13 +348,13 @@ void p_PhPIDParams(StaticJsonDocument<250>  &_jsonsdoc) {
 }
 void p_OrpPIDWSize(StaticJsonDocument<250>  &_jsonsdoc) {
     PMConfig.put<unsigned long>(ORPPIDWINDOWSIZE, (unsigned long)_jsonsdoc[F("OrpPIDWSize")]*60*1000); //in millisecs
-    OrpPID.SetSampleTime((int)PMConfig.get<unsigned long>(ORPPIDWINDOWSIZE));
+    OrpPID.SetSampleTime(30000);  // Fixed 30s compute interval, independent of window size
     OrpPID.SetOutputLimits(0, PMConfig.get<unsigned long>(ORPPIDWINDOWSIZE));  //Whatever happens, don't allow continuous injection of Chl for more than a PID Window
     PublishSettings();
 }
 void p_PhPIDWSize(StaticJsonDocument<250>  &_jsonsdoc) {
     PMConfig.put<unsigned long>(PHPIDWINDOWSIZE, (unsigned long)_jsonsdoc[F("PhPIDWSize")]*60*1000); //in millisecs
-    PhPID.SetSampleTime((int)PMConfig.get<unsigned long>(PHPIDWINDOWSIZE));
+    PhPID.SetSampleTime(30000);  // Fixed 30s compute interval, independent of window size
     PhPID.SetOutputLimits(0, PMConfig.get<unsigned long>(PHPIDWINDOWSIZE));    //Whatever happens, don't allow continuous injection of Acid for more than a PID Window
     PublishSettings();
 }
