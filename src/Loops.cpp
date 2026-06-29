@@ -396,9 +396,8 @@ void pHRegulation(void *pvParameters)
 
           if (windowShifted)
           {
-            // New window: reset pump uptime safety limit so the pump
-            // can run again within this window.
-            PhPump.ResetUpTime();
+            // New window: clear any UpTimeError so the pump
+            // can run again within this window (daily total resets at midnight).
             PhPump.ClearErrors();
           }
 
@@ -514,7 +513,7 @@ void OrpRegulation(void *pvParameters)
 
         if (windowShifted)
         {
-          ChlPump.ResetUpTime();
+          // Clear any UpTimeError for new window (daily total resets at midnight).
           ChlPump.ClearErrors();
         }
 
