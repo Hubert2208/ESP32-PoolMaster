@@ -409,8 +409,17 @@ void pHRegulation(void *pvParameters)
 
           if (!shouldRun)
             PhPump.Stop();
-          else
-            PhPump.Start();   
+          else {
+            Debug.print(DBG_INFO,
+              "[pH-Start] Out=%lu Elapsed=%lu Win=%lu Shift=%d "
+              "Run=%d UpErr=%d Tank=%d Ilk=%d Up=%lu Max=%lu",
+              (unsigned long)PMData.PhPIDOutput, elapsed, windowSize,
+              (int)windowShifted,
+              (int)PhPump.IsRunning(), (int)PhPump.UpTimeError,
+              (int)PhPump.TankLevel(), (int)PhPump.CheckInterlock(),
+              PhPump.UpTime, PhPump.CurrMaxUpTime);
+            PhPump.Start();
+          }
       } else {
         PhPID.SetMode(MANUAL);
         PMData.Ph_RegOnOff = false;
@@ -526,8 +535,17 @@ void OrpRegulation(void *pvParameters)
 
         if (!shouldRun)
           ChlPump.Stop();
-        else
+        else {
+          Debug.print(DBG_INFO,
+            "[ORP-Start] Out=%lu Elapsed=%lu Win=%lu Shift=%d "
+            "Run=%d UpErr=%d Tank=%d Ilk=%d Up=%lu Max=%lu",
+            (unsigned long)PMData.OrpPIDOutput, elapsed, windowSize,
+            (int)windowShifted,
+            (int)ChlPump.IsRunning(), (int)ChlPump.UpTimeError,
+            (int)ChlPump.TankLevel(), (int)ChlPump.CheckInterlock(),
+            ChlPump.UpTime, ChlPump.CurrMaxUpTime);
           ChlPump.Start();
+        }
       } else {
         OrpPID.SetMode(MANUAL);
         PMData.Orp_RegOnOff = false;
