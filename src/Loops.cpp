@@ -209,8 +209,6 @@ void AnalogPoll(void *pvParameters)
         if (!isnan(simPSI)) PMData.PSIValue = simPSI;
 #endif
 
-
-
         Debug.print(DBG_DEBUG,"pH: %5.0f - %4.2f - ORP: %5.0f - %3.0fmV - PSI: %5.0f - %4.2fBar\r",
             ph_sensor_value,PMData.PhValue,orp_sensor_value,PMData.OrpValue,psi_sensor_value,PMData.PSIValue);
     }
@@ -384,20 +382,15 @@ void pHRegulation(void *pvParameters)
 
           bool shouldRun = ((unsigned long)PMData.PhPIDOutput > elapsed);
 
-          // Debug: log only on transition to "PID wants to start"
-          static bool phLastShouldRun = false;
-          if (shouldRun && !phLastShouldRun)
-          {
-            Debug.print(DBG_INFO,
-              "[pH-Window] START Out=%6lu Elapsed=%6lu Win=%lu Shift=%d "
-              "Running=%d UpTimeErr=%d Tank=%d Interlock=%d UpTime=%lu MaxUp=%lu",
-              (unsigned long)PMData.PhPIDOutput, elapsed, windowSize,
-              (int)windowShifted,
-              (int)PhPump.IsRunning(), (int)PhPump.UpTimeError,
-              (int)PhPump.TankLevel(), (int)PhPump.CheckInterlock(),
-              PhPump.UpTime, PhPump.CurrMaxUpTime);
-          }
-          phLastShouldRun = shouldRun;
+          // SERIAL-DEBUG: always log the decision state (bypass Debug class)
+          Serial.printf("[pH-Decide] Output=%lu Elapsed=%lu Win=%lu Shift=%d "
+                        "shouldRun=%d Run=%d UpErr=%d Tank=%d Ilk=%d Up=%lu\r\n",
+                        (unsigned long)PMData.PhPIDOutput, elapsed, windowSize,
+                        (int)windowShifted, (int)shouldRun,
+                        (int)PhPump.IsRunning(), (int)PhPump.UpTimeError,
+                        (int)PhPump.TankLevel(), (int)PhPump.CheckInterlock(),
+                        PhPump.UpTime);
+          Serial.flush();
 
           if (windowShifted)
           {
@@ -410,14 +403,9 @@ void pHRegulation(void *pvParameters)
           if (!shouldRun)
             PhPump.Stop();
           else {
-            Debug.print(DBG_INFO,
-              "[pH-Start] Out=%lu Elapsed=%lu Win=%lu Shift=%d "
-              "Run=%d UpErr=%d Tank=%d Ilk=%d Up=%lu Max=%lu",
-              (unsigned long)PMData.PhPIDOutput, elapsed, windowSize,
-              (int)windowShifted,
-              (int)PhPump.IsRunning(), (int)PhPump.UpTimeError,
-              (int)PhPump.TankLevel(), (int)PhPump.CheckInterlock(),
-              PhPump.UpTime, PhPump.CurrMaxUpTime);
+            Serial.printf("[pH-Start] GO! Output=%lu Elapsed=%lu\r\n",
+                          (unsigned long)PMData.PhPIDOutput, elapsed);
+            Serial.flush();
             PhPump.Start();
           }
       } else {
@@ -512,20 +500,15 @@ void OrpRegulation(void *pvParameters)
 
         bool shouldRun = ((unsigned long)PMData.OrpPIDOutput > elapsed);
 
-        // Debug: log only on transition to "PID wants to start"
-        static bool orpLastShouldRun = false;
-        if (shouldRun && !orpLastShouldRun)
-        {
-          Debug.print(DBG_INFO,
-            "[ORP-Window] START Out=%6lu Elapsed=%6lu Win=%lu Shift=%d "
-            "Running=%d UpTimeErr=%d Tank=%d Interlock=%d UpTime=%lu MaxUp=%lu",
-            (unsigned long)PMData.OrpPIDOutput, elapsed, windowSize,
-            (int)windowShifted,
-            (int)ChlPump.IsRunning(), (int)ChlPump.UpTimeError,
-            (int)ChlPump.TankLevel(), (int)ChlPump.CheckInterlock(),
-            ChlPump.UpTime, ChlPump.CurrMaxUpTime);
-        }
-        orpLastShouldRun = shouldRun;
+        // SERIAL-DEBUG: always log the decision state (bypass Debug class)
+        Serial.printf("[ORP-Decide] Output=%lu Elapsed=%lu Win=%lu Shift=%d "
+                      "shouldRun=%d Run=%d UpErr=%d Tank=%d Ilk=%d Up=%lu\r\n",
+                      (unsigned long)PMData.OrpPIDOutput, elapsed, windowSize,
+                      (int)windowShifted, (int)shouldRun,
+                      (int)ChlPump.IsRunning(), (int)ChlPump.UpTimeError,
+                      (int)ChlPump.TankLevel(), (int)ChlPump.CheckInterlock(),
+                      ChlPump.UpTime);
+        Serial.flush();
 
         if (windowShifted)
         {
@@ -536,14 +519,9 @@ void OrpRegulation(void *pvParameters)
         if (!shouldRun)
           ChlPump.Stop();
         else {
-          Debug.print(DBG_INFO,
-            "[ORP-Start] Out=%lu Elapsed=%lu Win=%lu Shift=%d "
-            "Run=%d UpErr=%d Tank=%d Ilk=%d Up=%lu Max=%lu",
-            (unsigned long)PMData.OrpPIDOutput, elapsed, windowSize,
-            (int)windowShifted,
-            (int)ChlPump.IsRunning(), (int)ChlPump.UpTimeError,
-            (int)ChlPump.TankLevel(), (int)ChlPump.CheckInterlock(),
-            ChlPump.UpTime, ChlPump.CurrMaxUpTime);
+          Serial.printf("[ORP-Start] GO! Output=%lu Elapsed=%lu\r\n",
+                        (unsigned long)PMData.OrpPIDOutput, elapsed);
+          Serial.flush();
           ChlPump.Start();
         }
       } else {
