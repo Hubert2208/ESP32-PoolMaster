@@ -209,6 +209,8 @@ void AnalogPoll(void *pvParameters)
         if (!isnan(simPSI)) PMData.PSIValue = simPSI;
 #endif
 
+
+
         Debug.print(DBG_DEBUG,"pH: %5.0f - %4.2f - ORP: %5.0f - %3.0fmV - PSI: %5.0f - %4.2fBar\r",
             ph_sensor_value,PMData.PhValue,orp_sensor_value,PMData.OrpValue,psi_sensor_value,PMData.PSIValue);
     }
@@ -375,7 +377,7 @@ void pHRegulation(void *pvParameters)
           if (elapsed > windowSize)
           {
             //time to shift the Relay Window
-            PMData.PhPIDwStart += PMConfig.get<double>(PHPIDWINDOWSIZE);
+            PMData.PhPIDwStart += PMConfig.get<unsigned long>(PHPIDWINDOWSIZE);
             elapsed = now - PMData.PhPIDwStart;
             windowShifted = true;
           }
@@ -493,7 +495,7 @@ void OrpRegulation(void *pvParameters)
         if (elapsed > windowSize)
         {
           //time to shift the Relay Window
-          PMData.OrpPIDwStart += PMConfig.get<double>(ORPPIDWINDOWSIZE);
+          PMData.OrpPIDwStart += PMConfig.get<unsigned long>(ORPPIDWINDOWSIZE);
           elapsed = now - PMData.OrpPIDwStart;
           windowShifted = true;
         }
